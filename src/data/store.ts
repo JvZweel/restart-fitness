@@ -41,11 +41,23 @@ export function applyTheme(): void {
   try { localStorage.setItem('rf-theme', settings.value.theme); } catch { /* private mode */ }
 }
 
+function readThemePref(): ThemePref | null {
+  try {
+    const v = localStorage.getItem('rf-theme');
+    return v === 'light' || v === 'dark' || v === 'system' ? v : null;
+  } catch { return null; }
+}
+
 // ── Boot ──────────────────────────────────────────────────────
 export async function boot(): Promise<void> {
   try {
     const all = await DB.loadAll();
-    settings.value = { ...DEFAULT_SETTINGS, ...(all.settings ?? {}) };
+    const stored = { ...DEFAULT_SETTINGS, ...(all.settings ?? {}) };
+    // The theme is also mirrored to localStorage synchronously (for the pre-paint script),
+    // so it wins if the IndexedDB write didn't land before the page was closed.
+    const ls = readThemePref();
+    if (ls && ls !== stored.theme) { stored.theme = ls; void DB.setKV(DB.KV.settings, stored); }
+    settings.value = stored;
     program.value = all.program ?? DEFAULT_PROGRAM;
     workouts.value = all.workouts.sort((a, b) => b.startedAt - a.startedAt);
     daily.value = all.daily.sort((a, b) => a.date.localeCompare(b.date));

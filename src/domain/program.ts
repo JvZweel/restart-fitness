@@ -93,8 +93,8 @@ export function estimateMinutes(session: SessionPlan, warmupMin = 6, cooldownMin
   let sec = 0;
   for (const slot of session.slots) {
     const ex = EXERCISE_BY_ID[slot.exerciseId];
-    const perSet = (ex.timed ? slot.repMax : slot.repMax * 4) * (ex.perSide ? 2 : 1) + 20;
-    sec += slot.sets * perSet + (slot.sets - 1) * slot.restSec + 60;
+    const perSet = (ex.timed ? slot.repMax : slot.repMax * 3) * (ex.perSide ? 2 : 1) + 20;
+    sec += slot.sets * perSet + (slot.sets - 1) * slot.restSec + 45;
   }
   return Math.round(sec / 60 + warmupMin + cooldownMin);
 }

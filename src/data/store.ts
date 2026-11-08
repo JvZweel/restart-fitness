@@ -117,17 +117,27 @@ export async function startWorkout(sessionIndex: number): Promise<void> {
     id: uid(), date: isoDate(), startedAt: Date.now(), finishedAt: null, sessionIndex: plan.index, sessionName: plan.name,
     phase: 'warmup', cursor: 0, exercises: [], warmupDone: false, finisherDone: null, cooldownDone: false, restEndsAt: null, notes: '',
   };
-  active.value = w;
+  active.value = w; // seedSets reads active.startedAt to look up history from before this session
   w.exercises = plan.slots.map((slot) => ({ key: slot.key, exerciseId: slot.exerciseId, sets: seedSets(slot) }));
+  try {
+    await DB.setKV(DB.KV.active, w);
+  } catch (e) {
+    active.value = null; // don't leave a ghost session that isn't stored
+    throw e;
+  }
   active.value = { ...w };
-  await DB.setKV(DB.KV.active, active.value);
 }
 
+/** Update the in-progress workout. The UI updates immediately; a failed write is reported, not thrown. */
 export async function updateActive(fn: (w: WorkoutLog) => WorkoutLog): Promise<void> {
   if (!active.value) return;
   const next = fn(structuredClone(active.value));
   active.value = next;
-  await DB.setKV(DB.KV.active, next);
+  try {
+    await DB.setKV(DB.KV.active, next);
+  } catch {
+    notify('Couldn’t save progress to storage. Keep the app open and finish the session.', 'err');
+  }
 }
 
 export function planForActive(): SessionPlan | null {
@@ -212,7 +222,15 @@ export async function removePhoto(id: string): Promise<void> {
 
 // ── Backup ────────────────────────────────────────────────────
 const blobToDataUrl = (b: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
-const dataUrlToBlob = async (u: string) => (await fetch(u)).blob();
+/** Decode a base64 data: URL without fetch() (keeps the app free of anything network-shaped). */
+export function dataUrlToBlob(u: string): Blob {
+  const m = u.match(/^data:([^;,]+)(;base64)?,(.*)$/s);
+  if (!m) throw new Error('A photo in the backup is damaged.');
+  const bin = m[2] ? atob(m[3]) : decodeURIComponent(m[3]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: m[1] });
+}
 
 export async function exportBackupJson(includePhotos: boolean): Promise<string> {
   const ph = includePhotos ? await Promise.all(photos.value.map(async (p) => ({ id: p.id, date: p.date, width: p.width, height: p.height, dataUrl: await blobToDataUrl(p.blob) }))) : undefined;
@@ -221,7 +239,7 @@ export async function exportBackupJson(includePhotos: boolean): Promise<string> 
 
 export async function importBackupJson(json: string): Promise<{ workouts: number; days: number; photos: number }> {
   const b = parseBackup(json);
-  const ph: ProgressPhoto[] = await Promise.all((b.photos ?? []).map(async (p) => ({ id: p.id, date: p.date, width: p.width, height: p.height, blob: await dataUrlToBlob(p.dataUrl) })));
+  const ph: ProgressPhoto[] = await Promise.all((b.photos ?? []).map(async (p) => ({ id: p.id, date: p.date, width: p.width, height: p.height, blob: dataUrlToBlob(p.dataUrl) })));
   // Keep existing photos when the backup carries none.
   const keepPhotos = ph.length ? ph : photos.value;
   await DB.replaceAll({ settings: b.settings, program: b.program, workouts: b.workouts, daily: b.daily, photos: keepPhotos });

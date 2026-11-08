@@ -84,6 +84,8 @@ export interface Viewer {
   /** Render keyframe i exactly (end of its move). */
   renderKey(i: number): void;
   setPlaying(on: boolean): void;
+  /** Rotate the camera around the figure (keyboard orbit). */
+  orbit(deg: number): void;
   dispose(): void;
 }
 
@@ -238,6 +240,7 @@ export function createViewer(canvas: HTMLCanvasElement, opts: { dark: boolean; i
       draw();
     },
     setPlaying(on) { playing = on; if (on) kick(); },
+    orbit(deg) { az -= deg; placeCamera(); if (!playing) { resize(); draw(); } },
     dispose() {
       disposed = true;
       if (raf) cancelAnimationFrame(raf);

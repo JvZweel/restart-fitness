@@ -133,3 +133,13 @@ describe('exercise library', () => {
     }
   });
 });
+
+describe('progression with a changed weights list', () => {
+  const ex = { repMin: 8, repMax: 12, startKg: 10, load: 'pair' as const };
+  it('snaps a held or rep-progression weight that is no longer owned', () => {
+    const last: SetLog[] = [{ weight: 18, reps: 9, rpe: 8, done: true }];
+    expect(suggestNext(ex, 8, 12, last, [15, 17.5, 20]).weight).toBe(17.5);
+    const grind: SetLog[] = [{ weight: 18, reps: 9, rpe: 9, done: true }];
+    expect(suggestNext(ex, 8, 12, grind, [15, 17.5, 20]).weight).toBe(17.5);
+  });
+});

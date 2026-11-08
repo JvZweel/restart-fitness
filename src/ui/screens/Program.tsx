@@ -20,9 +20,9 @@ export function Program() {
     if (set.has(d)) set.delete(d); else set.add(d);
     const days = [...set].sort((a, b) => a - b) as Weekday[];
     if (days.length < 2) { setMsg('Keep at least 2 training days.'); return; }
-    if (days.length > 5) { setMsg('5 days is the maximum — turn one off first.'); return; }
+    if (days.length > 5) { setMsg('5 days is the maximum. Turn one off first.'); return; }
     setMsg(null);
-    await updateProgram({ weekdays: days });
+    try { await updateProgram({ weekdays: days }); } catch { notify('Couldn’t save the schedule', 'err'); return; }
     notify(`Re-balanced: ${days.length} full-body sessions (${days.map((x) => WEEKDAY_SHORT[x]).join(', ')})`);
   };
   const hasCustom = Object.keys(p.swaps).length > 0 || Object.keys(p.edits).length > 0;
@@ -30,7 +30,7 @@ export function Program() {
   return (
     <main class="page two-col" id="main">
       <header class="page-head full">
-        <div><div class="eyebrow">Your plan</div><h1>Programme</h1></div>
+        <h1>Programme</h1>
       </header>
 
       <section class="card stack full" aria-labelledby="days-h">
@@ -43,9 +43,10 @@ export function Program() {
             <button key={d} aria-pressed={p.weekdays.includes(i as Weekday)} onClick={() => toggleDay(i as Weekday)} aria-label={WEEKDAY_LONG[i]} data-testid={`day-${i}`}>{d}</button>
           ))}
         </div>
-        {msg ? <div class="small" style={{ color: 'var(--danger)' }} role="alert">{msg}</div> : <div class="small muted">Pick 2–5 days. Sessions re-balance automatically so every day stays full-body and weekly volume stays even.</div>}
-        <div class="row wrap" style={{ gap: '6px' }} aria-label="Weekly hard sets per pattern">
-          {PATTERNS.map((x) => <span key={x.pattern} class="chip num">{PATTERN_LABEL[x.pattern]} {vol[x.pattern]}</span>)}
+        {msg ? <div class="field-err" role="alert">{msg}</div> : <div class="small muted">Pick 2 to 5 days. Sessions re-balance automatically so every day stays full-body and weekly volume stays even.</div>}
+        <div class="label" id="vol-h">Hard sets per week</div>
+        <div class="row wrap" style={{ gap: '6px' }} role="list" aria-labelledby="vol-h">
+          {PATTERNS.map((x) => <span key={x.pattern} role="listitem" class="chip num">{PATTERN_LABEL[x.pattern]} {vol[x.pattern]}</span>)}
         </div>
       </section>
 
@@ -56,7 +57,7 @@ export function Program() {
               <div class="eyebrow">{WEEKDAY_LONG[s.weekday]}</div>
               <h2 id={`s-${s.index}`}>{s.name}</h2>
             </div>
-            <span class="chip outline"><Clock size={13} /> ~{estimateMinutes(s)} min</span>
+            <span class="chip outline"><Clock size={13} aria-hidden="true" /> about {estimateMinutes(s)} min</span>
           </div>
           <div class="list">
             {s.slots.map((slot) => {
@@ -65,30 +66,30 @@ export function Program() {
               return (
                 <div class="list-row" key={slot.key} data-testid={`slot-${s.index}-${slot.key}`}>
                   <div class="grow">
-                    <div class="ellipsis" style={{ fontWeight: 600 }}>{ex.name}{custom ? <span class="badge-dot" style={{ marginLeft: '8px', verticalAlign: '2px' }} title="Customised" /> : null}</div>
-                    <div class="xs muted num">{PATTERN_LABEL[slot.pattern]} · {slot.sets} × {slot.repMin}–{slot.repMax}{ex.timed ? 's' : ''}{ex.perSide ? '/side' : ''}</div>
+                    <div class="ellipsis" style={{ fontWeight: 600 }}>{ex.name}{custom ? <><span class="badge-dot" style={{ marginLeft: '8px', verticalAlign: '2px' }} aria-hidden="true" /><span class="sr-only"> (customised)</span></> : null}</div>
+                    <div class="xs muted num">{PATTERN_LABEL[slot.pattern]}, {slot.sets} × {slot.repMin}–{slot.repMax}{ex.timed ? 's' : ''}{ex.perSide ? ' per side' : ''}</div>
                   </div>
-                  <button class="icon-btn sm" aria-label={`Swap ${ex.name}`} onClick={() => setSwap(slot)} data-testid={`swap-${s.index}-${slot.key}`}><Repeat2 size={18} /></button>
-                  <button class="icon-btn sm" aria-label={`Edit sets and reps for ${ex.name}`} onClick={() => setEdit(slot)} data-testid={`edit-${s.index}-${slot.key}`}><SlidersHorizontal size={18} /></button>
+                  <button class="icon-btn sm" aria-label={`Swap ${ex.name}`} onClick={() => setSwap(slot)} data-testid={`swap-${s.index}-${slot.key}`}><Repeat2 size={18} aria-hidden="true" /></button>
+                  <button class="icon-btn sm" aria-label={`Edit sets and reps for ${ex.name}`} onClick={() => setEdit(slot)} data-testid={`edit-${s.index}-${slot.key}`}><SlidersHorizontal size={18} aria-hidden="true" /></button>
                 </div>
               );
             })}
           </div>
-          <div class="xs muted" style={{ marginTop: 'var(--s2)' }}>+ mobility warm-up, optional finisher and flexibility cool-down</div>
+          <div class="xs muted" style={{ marginTop: 'var(--s2)' }}>Plus a mobility warm-up, an optional finisher and a flexibility cool-down.</div>
         </section>
       ))}
 
       <section class="card stack full" aria-labelledby="guide-h">
         <h2 id="guide-h">Guidance</h2>
-        <div class="row" style={{ alignItems: 'flex-start' }}><Gauge size={18} class="muted" /><div class="small grow">{GUIDANCE.rpe}</div></div>
-        <div class="row" style={{ alignItems: 'flex-start' }}><TrendingUp size={18} class="muted" /><div class="small grow">{GUIDANCE.progression}</div></div>
-        <div class="row" style={{ alignItems: 'flex-start' }}><Footprints size={18} class="muted" /><div class="small grow">{GUIDANCE.walk}</div></div>
-        <div class="row" style={{ alignItems: 'flex-start' }}><Moon size={18} class="muted" /><div class="small grow">{GUIDANCE.sleep}</div></div>
-        <div class="row" style={{ alignItems: 'flex-start' }}><Utensils size={18} class="muted" /><div class="small grow"><strong>{GUIDANCE.calories} · {GUIDANCE.protein}</strong><ul style={{ margin: '6px 0 0', paddingLeft: '18px' }}>{GUIDANCE.meals.map((m) => <li key={m}>{m}</li>)}</ul></div></div>
+        <div class="row" style={{ alignItems: 'flex-start' }}><Gauge size={18} class="muted" aria-hidden="true" /><div class="small grow">{GUIDANCE.rpe}</div></div>
+        <div class="row" style={{ alignItems: 'flex-start' }}><TrendingUp size={18} class="muted" aria-hidden="true" /><div class="small grow">{GUIDANCE.progression}</div></div>
+        <div class="row" style={{ alignItems: 'flex-start' }}><Footprints size={18} class="muted" aria-hidden="true" /><div class="small grow">{GUIDANCE.walk}</div></div>
+        <div class="row" style={{ alignItems: 'flex-start' }}><Moon size={18} class="muted" aria-hidden="true" /><div class="small grow">{GUIDANCE.sleep}</div></div>
+        <div class="row" style={{ alignItems: 'flex-start' }}><Utensils size={18} class="muted" aria-hidden="true" /><div class="small grow"><strong>{GUIDANCE.calories} · {GUIDANCE.protein}</strong><ul style={{ margin: '6px 0 0', paddingLeft: '18px' }}>{GUIDANCE.meals.map((m) => <li key={m}>{m}</li>)}</ul></div></div>
       </section>
 
       {hasCustom ? (
-        <button class="btn secondary block full" onClick={async () => { await updateProgram({ swaps: {}, edits: {} }); notify('Programme reset to the default exercises'); }}><RotateCcw size={18} /> Reset swaps & edits</button>
+        <button class="btn secondary block full" onClick={async () => { await updateProgram({ swaps: {}, edits: {} }); notify('Programme reset to the default exercises'); }}><RotateCcw size={18} aria-hidden="true" /> Reset swaps and edits</button>
       ) : null}
 
       {swap ? <SwapSheet current={getExercise(swap.exerciseId)} slotKey={swap.key} programOnly onClose={() => setSwap(null)} onPick={async (id) => {
@@ -127,7 +128,7 @@ function EditSheet(props: { slot: SlotPrescription; onClose: () => void }) {
         <Stepper label={ex.timed ? 'max sec' : 'max reps'} value={String(hi)} onDec={() => setHi(Math.max(lo, hi - step))} onInc={() => setHi(hi + step)} testid="edit-hi" />
       </div>
       <button class="btn primary block" onClick={save} data-testid="edit-save">Save</button>
-      <button class="btn ghost" onClick={reset}><RotateCcw size={16} /> Back to default ({ex.repMin}–{ex.repMax})</button>
+      <button class="btn ghost" onClick={reset}><RotateCcw size={16} aria-hidden="true" /> Back to default ({ex.repMin}–{ex.repMax})</button>
     </Sheet>
   );
 }

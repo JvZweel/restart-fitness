@@ -37,14 +37,16 @@ if (!process.env.E2E_URL) {
   await new Promise((res, rej) => {
     const to = setTimeout(() => rej(new Error('preview did not start')), 20000);
     server.stdout.on('data', (d) => { if (String(d).includes(String(PORT))) { clearTimeout(to); res(); } });
+    server.stderr.on('data', (d) => { if (/already in use/.test(String(d))) { clearTimeout(to); rej(new Error(`Port ${PORT} is busy: a previous preview is still running. Stop it with: pkill -f "vite.js preview"`)); } });
   });
 }
 
-const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const CHROME_ARGS = ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+const browser = await chromium.launch({ executablePath: CHROME, args: CHROME_ARGS });
 const errors = [];
 
-async function newPage(opts = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: 'light', acceptDownloads: true, ...opts });
+async function newPage(opts = {}, b = browser) {
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: 'light', acceptDownloads: true, ...opts });
   await ctx.addInitScript(() => {
     window.__vibes = [];
     window.__locks = 0;
@@ -74,6 +76,32 @@ try {
   await step('first run shows a next session and empty logs', async () => {
     await tid(page, 'start-session').waitFor();
     ok(/Full Body A/.test(await page.locator('main').innerText()), 'Full Body A planned');
+    ok(await tid(page, 'welcome').count() === 1, 'first-run welcome shown');
+  });
+
+  await step('keyboard: skip link, sheet focus moves in, Escape closes and returns focus', async () => {
+    await page.keyboard.press('Tab');
+    ok(await page.evaluate(() => document.activeElement?.classList.contains('kbd-skip')), 'first Tab reaches the skip link');
+    const opener = page.getByRole('button', { name: 'Choose a different session' });
+    await opener.focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('dialog').waitFor();
+    await page.waitForFunction(() => !!document.activeElement?.closest('[role=dialog]'), null, { timeout: 3000 }).catch(() => {});
+    ok(await page.evaluate(() => !!document.activeElement?.closest('[role=dialog]')), 'focus moved into the sheet');
+    for (let i = 0; i < 6; i++) await page.keyboard.press('Tab');
+    ok(await page.evaluate(() => !!document.activeElement?.closest('[role=dialog]')), 'Tab stays inside the sheet');
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    await page.waitForFunction(() => document.activeElement?.textContent?.includes('Choose a different session'), null, { timeout: 3000 }).catch(() => {});
+    ok(await page.evaluate(() => document.activeElement?.textContent?.includes('Choose a different session')), 'focus returned to the opener');
+  });
+
+  await step('quick log rejects out-of-range values with a field error', async () => {
+    await tid(page, 'ql-weight').fill('925');
+    await tid(page, 'ql-save').click();
+    await toast(page, /Check the highlighted/);
+    ok((await tid(page, 'ql-weight').getAttribute('aria-invalid')) === 'true', 'weight marked invalid');
+    if (SHOTS) { await page.waitForTimeout(400); await page.screenshot({ path: join(shotDir, 'phone-light-error-quicklog.png') }); }
   });
 
   await step('quick daily log saves weight, steps, sleep, waist', async () => {
@@ -142,6 +170,14 @@ try {
     await page.waitForFunction(() => /Go!/.test(document.querySelector('[data-testid=rest-time]')?.textContent || ''), null, { timeout: 15000 });
     await page.waitForFunction(() => window.__vibes.length > 0, null, { timeout: 3000 });
     ok(true, 'vibrated when rest ended');
+    // regression: a paused rest must not leave the dock stuck in "paused" when the next set starts a new rest
+    await tid(page, 'rest-stop').click();
+    await tid(page, 'rest-start').click();
+    await tid(page, 'rest-pause').click();
+    await tid(page, 'rest-resume').waitFor();
+    await tid(page, 'log-set').click();
+    await tid(page, 'rest-pause').waitFor({ timeout: 3000 });
+    ok((await tid(page, 'rest-resume').count()) === 0, 'new rest after logging replaces the paused one');
   });
 
   await step('resume an interrupted session after reload', async () => {
@@ -292,6 +328,20 @@ try {
     await tid(page, 'tab-settings').click();
   });
 
+  await step('bad backup file and bad CSV show clear errors and change nothing', async () => {
+    const junk = join(tmp, 'not-a-backup.json');
+    writeFileSync(junk, 'Date,Steps\n2026-11-01,8000\n');
+    await tid(page, 'import-input').setInputFiles(junk);
+    await page.getByRole('button', { name: 'Replace' }).click();
+    await toast(page, /not valid JSON/);
+    if (SHOTS) { await page.waitForTimeout(400); await page.screenshot({ path: join(shotDir, 'phone-light-error-import.png') }); }
+    const csv = join(tmp, 'random.csv');
+    writeFileSync(csv, 'foo,bar\nhello,world\n');
+    await tid(page, 'garmin-input').setInputFiles(csv);
+    await toast(page, /No steps, sleep or weight/);
+    ok((await tid(page, 'garmin-preview').count()) === 0, 'no preview for a useless CSV');
+  });
+
   await step('offline reload via service worker', async () => {
     await page.evaluate(async () => { await navigator.serviceWorker.ready; });
     await page.reload(); // make sure the page is controlled
@@ -310,6 +360,63 @@ try {
     await ctx.setOffline(false);
   });
   await ctx.close();
+
+  // ---------------- fresh install: empty states ----------------
+  for (const scheme of ['light', 'dark']) {
+    await step(`empty states (fresh install, ${scheme})`, async () => {
+      const { ctx: c, page: p } = await newPage({ colorScheme: scheme });
+      const snap = async (name) => { if (SHOTS) { await p.waitForTimeout(400); await p.screenshot({ path: join(shotDir, `phone-${scheme}-empty-${name}.png`) }); } };
+      await p.goto(BASE);
+      await tid(p, 'welcome').waitFor();
+      await snap('today');
+      await tid(p, 'tab-progress').click();
+      await tid(p, 'empty-lifts').waitFor();
+      await snap('progress');
+      await p.getByRole('button', { name: /^Body$/ }).click();
+      await tid(p, 'empty-body').waitFor();
+      await snap('body');
+      await p.getByRole('button', { name: /^Photos$/ }).click();
+      await tid(p, 'empty-photos').waitFor();
+      await snap('photos');
+      ok(true, 'empty states render');
+      await c.close();
+    });
+  }
+
+  await step('reduced motion: demonstration starts paused and can be played', async () => {
+    const { ctx: c, page: p } = await newPage({ reducedMotion: 'reduce' });
+    await p.goto(BASE);
+    await tid(p, 'start-session').click();
+    await p.waitForFunction(() => document.querySelector('[data-anim]')?.getAttribute('data-state') === 'ok', null, { timeout: 15000 });
+    ok((await tid(p, 'anim-toggle').getAttribute('aria-pressed')) === 'true', 'paused under reduced motion');
+    await tid(p, 'anim-toggle').click();
+    ok((await tid(p, 'anim-toggle').getAttribute('aria-pressed')) === 'false', 'play toggles');
+    await c.close();
+  });
+
+  await step('storage blocked: clear error screen', async () => {
+    const { ctx: c, page: p } = await newPage();
+    await c.addInitScript(() => { Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open() { throw new Error('IndexedDB is disabled'); } } }); });
+    await p.goto(BASE);
+    await tid(p, 'storage-error').waitFor();
+    ok(/Storage is unavailable/.test(await p.locator('main').innerText()), 'storage error explains the problem');
+    if (SHOTS) { await p.waitForTimeout(500); await p.screenshot({ path: join(shotDir, 'phone-light-error-storage.png') }); }
+    await c.close();
+  });
+
+  await step('3D unavailable: session still usable with cues', async () => {
+    const noGl = await chromium.launch({ executablePath: CHROME, args: [...CHROME_ARGS.filter((a) => !/swiftshader|gpu-blocklist/.test(a)), '--disable-webgl', '--disable-3d-apis'] });
+    try {
+      const { page: p } = await newPage({ colorScheme: 'dark' }, noGl);
+      await p.goto(BASE);
+      await tid(p, 'start-session').click();
+      await tid(p, 'guided-skip').click();
+      await p.waitForFunction(() => document.querySelector('[data-anim]')?.getAttribute('data-state') === 'error', null, { timeout: 15000 });
+      ok(/3D preview unavailable/.test(await p.locator('main').innerText()), 'fallback message shown');
+      ok(await tid(p, 'log-set').count() === 1, 'set logging still available');
+      if (SHOTS) { await p.waitForTimeout(300); await p.screenshot({ path: join(shotDir, 'phone-dark-error-3d.png') }); }
+    } finally { await noGl.close(); }
+  });
 
   // ---------------- screenshots with demo history ----------------
   if (SHOTS) {
@@ -348,7 +455,7 @@ try {
 } finally {
   await browser.close();
   if (server) server.kill();
-  const real = errors.filter((e) => !/net::ERR_INTERNET_DISCONNECTED|Failed to load resource/.test(e));
+  const real = errors.filter((e) => !/net::ERR_INTERNET_DISCONNECTED|Failed to load resource|WebGL|THREE\.WebGLRenderer/i.test(e));
   console.log(`\n${results.length} steps, ${passed} assertions`);
   if (real.length) { console.log('Browser errors:\n' + real.join('\n')); process.exitCode = 1; }
   writeFileSync(join(tmp, 'e2e-report.txt'), results.join('\n') + `\n${passed} assertions\n` + (real.length ? 'Errors:\n' + real.join('\n') : 'No browser errors') + '\n');

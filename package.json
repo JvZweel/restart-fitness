@@ -1,7 +1,7 @@
 {
   "name": "restart-fitness",
   "version": "1.0.0",
-  "description": "Restart Fitness – offline PWA training companion",
+  "description": "Restart Fitness \u2013 offline PWA training companion",
   "scripts": {
     "dev": "vite --host",
     "build": "tsc -p . && vite build",
@@ -12,7 +12,8 @@
     "build:pages": "BASE_PATH=/restart-fitness/ npm run build",
     "e2e": "node e2e/run.mjs",
     "icons": "node scripts/icons.mjs",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build"
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "e2e:pages": "node e2e/pages.mjs"
   },
   "author": "",
   "license": "ISC",

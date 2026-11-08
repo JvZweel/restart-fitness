@@ -19,7 +19,7 @@ export function suggestNext(ex: Pick<Exercise, 'repMin' | 'repMax' | 'startKg' |
   const bodyweight = ex.load === 'bodyweight';
   const done = (last ?? []).filter((s) => s.done && s.reps > 0);
   if (!done.length) {
-    return { weight: bodyweight ? 0 : snapWeight(ex.startKg, weights), reps: repMin, reason: 'first', note: 'Starting point — find a weight that feels like RPE 7' };
+    return { weight: bodyweight ? 0 : snapWeight(ex.startKg, weights), reps: repMin, reason: 'first', note: 'Starting point. Find a weight that feels like RPE 7' };
   }
   const weight = Math.max(...done.map((s) => s.weight));
   const working = done.filter((s) => s.weight === weight);
@@ -27,21 +27,23 @@ export function suggestNext(ex: Pick<Exercise, 'repMin' | 'repMax' | 'startKg' |
   const rpes = working.map((s) => s.rpe).filter((r): r is number => r != null);
   const rpe = rpes.length ? Math.max(...rpes) : 8;
   const allTop = working.every((s) => s.reps >= repMax);
+  // The list may have changed since last time (a weight removed): never suggest a weight the user doesn't own.
+  const owned = bodyweight ? 0 : snapWeight(weight, weights);
 
   if (rpe >= 9) {
     if (minReps < repMin && !bodyweight) {
-      return { weight: nextDown(weight, weights), reps: repMin, reason: 'reduce', note: `Last time was a grind (RPE ${rpe}) — drop one step` };
+      return { weight: nextDown(weight, weights), reps: repMin, reason: 'reduce', note: `Last time was a grind (RPE ${rpe}). Drop one step` };
     }
-    return { weight, reps: Math.max(repMin, Math.min(minReps, repMax)), reason: 'hold', note: `RPE ${rpe} last time — repeat and own it` };
+    return { weight: owned, reps: Math.max(repMin, Math.min(minReps, repMax)), reason: 'hold', note: `RPE ${rpe} last time. Repeat and own it` };
   }
   if (allTop) {
-    if (bodyweight) return { weight: 0, reps: repMax, reason: 'hold', note: 'Top of the range — slow the tempo or swap to a harder variation' };
+    if (bodyweight) return { weight: 0, reps: repMax, reason: 'hold', note: 'Top of the range. Slow the tempo or swap to a harder variation' };
     const up = nextUp(weight, weights);
-    if (up === weight) return { weight, reps: repMax, reason: 'hold', note: 'Heaviest dumbbell reached — slow the tempo' };
-    return { weight: up, reps: repMin, reason: 'increase-weight', note: `Hit ${repMax} on every set — go up to ${up} kg` };
+    if (up === weight) return { weight: owned, reps: repMax, reason: 'hold', note: 'Heaviest dumbbell reached. Slow the tempo' };
+    return { weight: up, reps: repMin, reason: 'increase-weight', note: `Hit ${repMax} on every set. Go up to ${up} kg` };
   }
   const step = rpe <= 7 ? 2 : 1;
-  return { weight, reps: Math.min(repMax, Math.max(repMin, minReps + step)), reason: 'add-reps', note: `RPE ${rpe} — add ${step === 2 ? 'two reps' : 'a rep'} this time` };
+  return { weight: owned, reps: Math.min(repMax, Math.max(repMin, minReps + step)), reason: 'add-reps', note: `RPE ${rpe}. Add ${step === 2 ? 'two reps' : 'a rep'} this time` };
 }
 
 /** Epley estimated 1-rep max per dumbbell (kg). */

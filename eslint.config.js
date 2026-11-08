@@ -12,5 +12,5 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
     },
   },
-  { files: ['e2e/**/*.mjs', 'scripts/**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly', setTimeout: 'readonly', document: 'readonly', window: 'readonly', navigator: 'readonly', caches: 'readonly', indexedDB: 'readonly', localStorage: 'readonly', URL: 'readonly', Buffer: 'readonly' } } },
+  { files: ['e2e/**/*.mjs', 'scripts/**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', location: 'readonly', document: 'readonly', window: 'readonly', navigator: 'readonly', caches: 'readonly', indexedDB: 'readonly', localStorage: 'readonly', URL: 'readonly', Buffer: 'readonly' } } },
 );

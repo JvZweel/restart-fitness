@@ -99,7 +99,7 @@ export const MUSCLE_LABEL: Record<string, string> = {
 export const WARMUP: GuidedMove[] = [
   { id: 'march', name: 'Marching in Place', seconds: 60, cue: 'Easy pace, swing the arms, breathe through the nose', anim: 'march' },
   { id: 'arm-circles', name: 'Arm Circles', seconds: 40, cue: 'Big slow circles forwards, then backwards', anim: 'arm-circles' },
-  { id: 'cat-cow', name: 'Cat–Cow', seconds: 40, cue: 'Round the spine up, then let the chest sink — move slowly', anim: 'cat-cow' },
+  { id: 'cat-cow', name: 'Cat–Cow', seconds: 40, cue: 'Round the spine up, then let the chest sink. Move slowly', anim: 'cat-cow' },
   { id: 'worlds-greatest', name: "World's Greatest Stretch", seconds: 60, perSide: true, cue: 'Lunge, elbow to instep, then rotate the arm to the ceiling', anim: 'worlds-greatest' },
   { id: 'hip-hinge-drill', name: 'Bodyweight Good Morning', seconds: 40, cue: 'Hands on hips, push hips back with a flat back', anim: 'good-morning' },
   { id: 'bw-squat', name: 'Bodyweight Squat', seconds: 40, cue: 'Sit deep and slow, pause at the bottom', anim: 'bw-squat' },
@@ -113,7 +113,7 @@ export const COOLDOWN: GuidedMove[] = [
   { id: 'figure-four', name: 'Figure-4 Glute Stretch', seconds: 60, perSide: true, cue: 'Ankle over knee, draw the leg in gently', anim: 'figure-four' },
   { id: 'childs-pose', name: "Child's Pose (Lat Reach)", seconds: 40, cue: 'Walk the hands forward, sink the hips back', anim: 'childs-pose' },
   { id: 'chest-opener', name: 'Chest Opener', seconds: 40, cue: 'Hands clasped behind, lift the chest, shoulders down', anim: 'chest-opener' },
-  { id: 'breathing', name: 'Box Breathing', seconds: 60, cue: 'In 4 · hold 4 · out 4 · hold 4 — let the session settle', anim: 'breathing' },
+  { id: 'breathing', name: 'Box Breathing', seconds: 60, cue: 'In 4 · hold 4 · out 4 · hold 4. Let the session settle', anim: 'breathing' },
 ];
 
 export const FINISHERS: Finisher[] = [

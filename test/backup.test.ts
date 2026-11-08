@@ -42,3 +42,59 @@ describe('backup', () => {
     expect(fixed.daily).toEqual([]);
   });
 });
+
+describe('backup import hardening', () => {
+  const wrap = (extra: Record<string, unknown>) => JSON.stringify({ app: 'restart-fitness', version: 1, ...extra });
+
+  it('drops malformed exercises and sets instead of crashing charts later', () => {
+    const bad = {
+      ...workout,
+      exercises: [
+        { key: 'knee:0', exerciseId: 'goblet-squat', sets: [{ weight: 15, reps: 10, rpe: 7, done: true }, { weight: 'x', reps: 5, done: true }, null] },
+        { key: 'push:0', exerciseId: 'flat-db-press' }, // no sets array
+        'junk',
+      ],
+    };
+    const b = parseBackup(wrap({ workouts: [bad] }));
+    expect(b.workouts).toHaveLength(1);
+    expect(b.workouts[0].exercises).toHaveLength(1);
+    expect(b.workouts[0].exercises[0].sets).toEqual([{ weight: 15, reps: 10, rpe: 7, done: true }]);
+  });
+
+  it('keeps only finite, non-negative daily numbers', () => {
+    const b = parseBackup(wrap({ daily: [{ date: '2026-11-02', weight: '92.5', steps: -4, sleepH: 7, waist: null }] }));
+    expect(b.daily).toEqual([{ date: '2026-11-02', sleepH: 7 }]);
+  });
+
+  it('falls back to defaults for invalid numeric / boolean settings', () => {
+    const b = parseBackup(wrap({ settings: { restCompoundSec: 'abc', restAccessorySec: 90, sound: 'yes', warmupSec: -5 } }));
+    expect(b.settings.restCompoundSec).toBe(DEFAULT_SETTINGS.restCompoundSec);
+    expect(b.settings.restAccessorySec).toBe(90);
+    expect(b.settings.sound).toBe(DEFAULT_SETTINGS.sound);
+    expect(b.settings.warmupSec).toBe(DEFAULT_SETTINGS.warmupSec);
+  });
+
+  it('drops swaps to exercises this version does not know', () => {
+    const b = parseBackup(wrap({ program: { weekdays: [0, 1, 2], swaps: { 'knee:0': 'step-up', 'push:0': 'cable-fly-9000' }, edits: {} } }));
+    expect(b.program.swaps).toEqual({ 'knee:0': 'step-up' });
+  });
+
+  it('gives a readable message for files that are not JSON or not a backup', () => {
+    expect(() => parseBackup('Date,Steps\n2026-11-01,8000')).toThrow(/not valid JSON/);
+    expect(() => parseBackup('[1,2,3]')).toThrow(/not a Restart Fitness backup/);
+    expect(() => parseBackup('')).toThrow(/empty/);
+  });
+});
+
+describe('backup import: workouts from other builds', () => {
+  const wrap = (extra: Record<string, unknown>) => JSON.stringify({ app: 'restart-fitness', version: 1, ...extra });
+  it('drops exercises this version does not know, and workouts without a numeric start time', () => {
+    const w = { ...workout, exercises: [...workout.exercises, { key: 'x:0', exerciseId: 'cable-fly-9000', sets: [{ weight: 5, reps: 5, rpe: null, done: true }] }] };
+    const noStart = { ...workout, id: 'w2', startedAt: 'yesterday' };
+    const badFinish = { ...workout, id: 'w3', finishedAt: 'later' };
+    const b = parseBackup(wrap({ workouts: [w, noStart, badFinish] }));
+    expect(b.workouts.map((x) => x.id)).toEqual(['w1', 'w3']);
+    expect(b.workouts[0].exercises.map((e) => e.exerciseId)).toEqual(['goblet-squat']);
+    expect(b.workouts[1].finishedAt).toBeNull();
+  });
+});

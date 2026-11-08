@@ -12,7 +12,7 @@ export function Settings() {
   const s = settings.value;
   return (
     <main class="page two-col" id="main">
-      <header class="page-head full"><div><div class="eyebrow">Preferences</div><h1>Settings</h1></div></header>
+      <header class="page-head full"><h1>Settings</h1></header>
       <div class="stack">
         <Appearance theme={s.theme} />
         <Weights />
@@ -58,7 +58,7 @@ function Appearance(props: { theme: ThemePref }) {
           <button key={v} aria-pressed={props.theme === v} onClick={() => setTheme(v)} data-testid={`theme-${v}`}><span class="row" style={{ justifyContent: 'center', gap: '6px' }}>{i}{l}</span></button>
         ))}
       </div>
-      <div class="small muted">Saved on this phone. “System” follows Android’s light/dark setting.</div>
+      <div class="small muted">System follows your phone’s light or dark setting.</div>
     </section>
   );
 }
@@ -79,28 +79,28 @@ function Weights() {
   const remove = (w: number) => updateSettings({ weights: list.filter((x) => x !== w) });
   return (
     <section class="card stack" aria-labelledby="w-h">
-      <div class="card-head" style={{ marginBottom: 0 }}><h2 id="w-h">Available weights</h2><span class="chip num">{list.length} settings</span></div>
-      <div class="small muted">Kilograms per dumbbell. Suggestions only ever use weights from this list.</div>
+      <div class="card-head" style={{ marginBottom: 0 }}><h2 id="w-h">Available weights</h2><span class="chip num">{list.length} weights</span></div>
+      <div class="small muted" id="w-hint">Kilograms per dumbbell. Weight suggestions only use weights from this list.</div>
       <form class="row" onSubmit={add}>
         <div class="input-unit grow">
-          <input class="input num" type="number" inputMode="decimal" step="0.25" min="0" placeholder="e.g. 18.5" value={val} aria-label="New weight in kilograms" data-testid="weight-new"
+          <input class="input num" type="number" inputMode="decimal" step="0.25" min="0" placeholder="e.g. 18.5" value={val} aria-label="New weight in kilograms" aria-describedby={err ? 'w-err' : 'w-hint'} aria-invalid={err ? 'true' : undefined} data-testid="weight-new"
             onInput={(e) => setVal((e.target as HTMLInputElement).value)} />
           <span>kg</span>
         </div>
-        <button class="icon-btn" type="submit" aria-label="Add weight" style={{ background: 'var(--accent)', color: 'var(--accent-ink)', borderColor: 'var(--accent)' }} data-testid="weight-add"><Plus size={24} /></button>
+        <button class="icon-btn" type="submit" aria-label="Add weight" style={{ background: 'var(--accent)', color: 'var(--accent-ink)', borderColor: 'var(--accent)' }} data-testid="weight-add"><Plus size={24} aria-hidden="true" /></button>
       </form>
-      {err ? <div class="small" role="alert" style={{ color: 'var(--danger)' }}>{err}</div> : null}
+      {err ? <div class="field-err" id="w-err" role="alert">{err}</div> : null}
       {list.length ? (
         <div class="weights" role="list" aria-label="Your weights">
           {list.map((w) => (
             <span class="weight-chip" role="listitem" key={w} data-testid={`w-${w}`}>
-              {w}
-              <button class="icon-btn sm plain danger" aria-label={`Remove ${w} kg`} onClick={() => remove(w)} data-testid={`w-del-${w}`}><Trash2 size={16} /></button>
+              <span>{w}<span class="sr-only"> kg</span></span>
+              <button class="icon-btn sm plain" aria-label={`Remove ${w} kg`} onClick={() => remove(w)} data-testid={`w-del-${w}`}><Trash2 size={16} aria-hidden="true" /></button>
             </span>
           ))}
         </div>
-      ) : <div class="small muted">No weights yet — suggestions will round to 0.5 kg until you add some.</div>}
-      {list.join() !== DEFAULT_WEIGHTS.join() ? <button class="btn ghost sm" onClick={() => updateSettings({ weights: DEFAULT_WEIGHTS })}><RotateCcw size={14} /> Restore default list</button> : null}
+      ) : <div class="small muted">No weights in the list. Suggestions round to the nearest 0.5 kg until you add some.</div>}
+      {list.join() !== DEFAULT_WEIGHTS.join() ? <button class="btn ghost sm" onClick={() => updateSettings({ weights: DEFAULT_WEIGHTS })}><RotateCcw size={14} aria-hidden="true" /> Restore default list</button> : null}
     </section>
   );
 }
@@ -115,36 +115,39 @@ function Garmin() {
     if (!f) return;
     try {
       const r = parseGarminCsv(await f.text());
-      if (!r.rows.length) { notify('No steps, sleep or weight found in that file', 'err'); return; }
+      if (!r.rows.length) { notify('No steps, sleep or weight found in that file. Export a Steps, Sleep or Weight report as CSV.', 'err'); return; }
       setPreview({ ...r, name: f.name });
-    } catch { notify('Could not read that CSV file', 'err'); }
+    } catch { notify('Couldn’t read that file. Choose a CSV exported from Garmin Connect.', 'err'); }
   };
   const apply = async () => {
     if (!preview) return;
     const merged = mergeDaily(daily.value, preview.rows, overwrite);
     const changed = merged.filter((m) => preview.rows.some((r) => r.date === m.date));
-    await mergeDailyRows(changed);
-    notify(`Imported ${preview.rows.length} days from Garmin`);
-    setPreview(null);
+    try {
+      await mergeDailyRows(changed);
+      notify(`Imported ${preview.rows.length} days from Garmin`);
+      setPreview(null);
+    } catch { notify('Couldn’t save the import: storage is unavailable', 'err'); }
   };
   return (
     <section class="card stack" aria-labelledby="g-h">
-      <h2 id="g-h" class="row" style={{ gap: '8px' }}><FileSpreadsheet size={18} /> Garmin import</h2>
-      <p class="small muted" style={{ margin: 0 }}>In Garmin Connect on the web, open Reports → Steps, Sleep or Weight, choose a range and Export CSV. Load the file here — days are merged by date.</p>
+      <h2 id="g-h" class="row" style={{ gap: '8px' }}><FileSpreadsheet size={18} aria-hidden="true" /> Garmin import</h2>
+      <p class="small muted" style={{ margin: 0 }}>In Garmin Connect on the web, open Reports, pick Steps, Sleep or Weight, choose a range and select Export CSV. Load the file here. Days are merged by date and you see a preview first.</p>
       <label class="btn secondary block" data-testid="garmin-pick">
-        <Upload size={18} /> Choose Garmin CSV
+        <Upload size={18} aria-hidden="true" /> Choose Garmin CSV
         <input type="file" accept=".csv,text/csv,text/plain" class="sr-only" onChange={onFile} data-testid="garmin-input" />
       </label>
       {preview ? (
         <Sheet title="Import preview" onClose={() => setPreview(null)}>
-          <div class="small muted">{preview.name} · found {preview.detected.join(', ') || 'data'} · {preview.rows.length} days{preview.skipped ? ` · ${preview.skipped} rows skipped` : ''}</div>
-          <div style={{ maxHeight: '40vh', overflow: 'auto' }}>
+          <div class="small muted">{preview.name}: {preview.detected.join(', ') || 'data'} for {preview.rows.length} days{preview.skipped ? `, ${preview.skipped} rows skipped` : ''}. Showing the latest 30.</div>
+          <div style={{ maxHeight: '40vh', overflow: 'auto' }} tabIndex={0} aria-label="Import preview table">
             <table class="table" data-testid="garmin-preview">
-              <thead><tr><th>Date</th><th>Steps</th><th>Sleep h</th><th>Weight kg</th></tr></thead>
+              <caption class="sr-only">Rows to import</caption>
+              <thead><tr><th scope="col">Date</th><th scope="col">Steps</th><th scope="col">Sleep h</th><th scope="col">Weight kg</th></tr></thead>
               <tbody>{preview.rows.slice(-30).reverse().map((r) => <tr key={r.date}><td>{r.date}</td><td>{r.steps ?? '—'}</td><td>{r.sleepH ?? '—'}</td><td>{r.weight ?? '—'}</td></tr>)}</tbody>
             </table>
           </div>
-          <div class="list"><Toggle label="Overwrite values I typed in" hint="Off = only fill empty days" checked={overwrite} onChange={setOverwrite} /></div>
+          <div class="list"><Toggle label="Replace values I typed in" hint="When off, only empty days are filled" checked={overwrite} onChange={setOverwrite} /></div>
           <button class="btn primary block" onClick={apply} data-testid="garmin-apply">Merge {preview.rows.length} days</button>
         </Sheet>
       ) : null}
@@ -156,8 +159,12 @@ function Backup() {
   const [withPhotos, setWithPhotos] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
   const [reset, setReset] = useState(false);
+  const [busy, setBusy] = useState(false);
   const exportNow = async () => {
-    const json = await exportBackupJson(withPhotos);
+    setBusy(true);
+    let json: string;
+    try { json = await exportBackupJson(withPhotos); } catch { notify('Couldn’t create the backup. Try again without photos.', 'err'); setBusy(false); return; }
+    setBusy(false);
     const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
@@ -172,22 +179,23 @@ function Backup() {
     const input = e.target as HTMLInputElement;
     const f = input.files?.[0];
     input.value = '';
-    if (f) setPending(await f.text());
+    if (!f) return;
+    try { setPending(await f.text()); } catch { notify('Couldn’t read that file', 'err'); }
   };
   return (
     <section class="card stack" aria-labelledby="bk-h">
       <h2 id="bk-h">Backup</h2>
-      <p class="small muted" style={{ margin: 0 }}>Everything lives only on this phone. Export a backup now and then — it includes your logs, programme and settings.</p>
-      <div class="list"><Toggle label="Include progress photos" hint={`${photos.value.length} photo${photos.value.length === 1 ? '' : 's'} · makes the file larger`} checked={withPhotos} onChange={setWithPhotos} /></div>
+      <p class="small muted" style={{ margin: 0 }}>Your data lives only on this phone. Export a backup every few weeks and keep it somewhere safe, such as Google Drive. It holds your logs, programme and settings.</p>
+      <div class="list"><Toggle label="Include progress photos" hint={`${photos.value.length} photo${photos.value.length === 1 ? '' : 's'}, makes the file larger`} checked={withPhotos} onChange={setWithPhotos} /></div>
       <div class="grid2">
-        <button class="btn primary" onClick={exportNow} data-testid="export"><Download size={18} /> Export</button>
-        <label class="btn secondary" data-testid="import-pick"><Upload size={18} /> Import<input type="file" accept="application/json,.json" class="sr-only" onChange={onFile} data-testid="import-input" /></label>
+        <button class="btn primary" onClick={exportNow} disabled={busy} data-testid="export"><Download size={18} aria-hidden="true" /> {busy ? 'Preparing' : 'Export'}</button>
+        <label class="btn secondary" data-testid="import-pick"><Upload size={18} aria-hidden="true" /> Import<input type="file" accept="application/json,.json" class="sr-only" onChange={onFile} data-testid="import-input" /></label>
       </div>
-      <button class="btn danger block" onClick={() => setReset(true)} data-testid="reset"><RotateCcw size={18} /> Reset all data</button>
+      <button class="btn danger block" onClick={() => setReset(true)} data-testid="reset"><RotateCcw size={18} aria-hidden="true" /> Reset all data</button>
       {pending ? <Confirm title="Replace all data?" body="Importing replaces the logs, programme and settings on this phone with the backup. Export first if you want to keep the current data." confirm="Replace" onConfirm={async () => {
-        try { const r = await importBackupJson(pending); notify(`Restored ${r.workouts} sessions and ${r.days} days`); } catch (err) { notify(err instanceof Error ? err.message : 'Import failed', 'err'); }
+        try { const r = await importBackupJson(pending); notify(`Restored ${r.workouts} sessions and ${r.days} days`); } catch (err) { notify(err instanceof Error ? err.message : 'Import failed. Nothing was changed.', 'err'); }
       }} onClose={() => setPending(null)} /> : null}
-      {reset ? <Confirm title="Reset everything?" body="Deletes every session, daily log, photo and setting on this phone. This can’t be undone." confirm="Delete everything" danger onConfirm={async () => { await resetAll(); notify('All data reset'); }} onClose={() => setReset(false)} /> : null}
+      {reset ? <Confirm title="Reset everything?" body="Deletes every session, daily log, photo and setting on this phone. This can’t be undone." confirm="Delete everything" danger onConfirm={async () => { try { await resetAll(); notify('All data reset'); } catch { notify('Couldn’t reset: storage is unavailable', 'err'); } }} onClose={() => setReset(false)} /> : null}
     </section>
   );
 }
@@ -204,11 +212,11 @@ function About() {
     <section class="card stack" aria-labelledby="ab-h">
       <h2 id="ab-h">App</h2>
       <div class="list">
-        <div class="list-row"><WifiOff size={18} class="muted" /><div class="grow">Offline</div><span class={`chip ${offlineReady.value ? 'accent' : ''}`} data-testid="offline-status">{offlineReady.value ? 'Ready' : 'Preparing…'}</span></div>
-        <div class="list-row"><ShieldCheck size={18} class="muted" /><div class="grow">Data stays on this device</div><span class="chip">No account</span></div>
-        <div class="list-row"><Smartphone size={18} class="muted" /><div class="grow">Version</div><span class="chip num">{__APP_VERSION__}{online ? '' : ' · offline'}</span></div>
+        <div class="list-row"><WifiOff size={18} class="muted" aria-hidden="true" /><div class="grow">Offline</div><span class={`chip ${offlineReady.value ? 'accent' : ''}`} data-testid="offline-status">{offlineReady.value ? 'Ready' : 'Preparing'}</span></div>
+        <div class="list-row"><ShieldCheck size={18} class="muted" aria-hidden="true" /><div class="grow">Data stays on this device</div><span class="chip">No account</span></div>
+        <div class="list-row"><Smartphone size={18} class="muted" aria-hidden="true" /><div class="grow">Version</div><span class="chip num">{__APP_VERSION__}{online ? '' : ' · offline'}</span></div>
       </div>
-      {prompt ? <button class="btn primary block" onClick={async () => { await prompt.prompt(); installPrompt.value = null; }}>Install app</button> : <div class="xs muted">To install: Chrome menu ⋮ → Add to Home screen / Install app.</div>}
+      {prompt ? <button class="btn primary block" onClick={async () => { await prompt.prompt(); installPrompt.value = null; }}>Install app</button> : <div class="small muted">To install, open the Chrome menu (⋮) and choose Install app or Add to Home screen.</div>}
     </section>
   );
 }

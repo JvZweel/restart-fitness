@@ -72,3 +72,13 @@ export function workoutVolume(w: WorkoutLog): { sets: number; volume: number } {
   for (const e of w.exercises) for (const s of e.sets) if (s.done) { sets++; volume += s.weight * s.reps; }
   return { sets, volume: Math.round(volume) };
 }
+
+/** Average a daily series per Monday-start week (x = the week's Monday at local midnight). */
+export function weeklyAverages(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  const by = new Map<number, number[]>();
+  for (const p of points) {
+    const wk = startOfWeek(new Date(p.x)).getTime();
+    by.set(wk, [...(by.get(wk) ?? []), p.y]);
+  }
+  return [...by.entries()].sort((a, b) => a[0] - b[0]).map(([x, ys]) => ({ x, y: ys.reduce((a, b) => a + b, 0) / ys.length }));
+}

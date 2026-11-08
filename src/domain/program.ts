@@ -102,7 +102,7 @@ export function estimateMinutes(session: SessionPlan, warmupMin = 6, cooldownMin
 export const GUIDANCE = {
   calories: '2,100–2,300 kcal per day',
   protein: '190–220 g protein per day (spread over 3–4 meals)',
-  walk: 'Daily walk: 30–45 min or 7,000–10,000 steps, every day — including non-training days',
+  walk: 'Daily walk: 30–45 min or 7,000–10,000 steps, every day, including rest days',
   sleep: 'Sleep: protect 7 h where you can; on <6 h nights keep RPE at 7 and skip the finisher',
   meals: [
     'Breakfast: Huel, or kvarg + 3 eggs',

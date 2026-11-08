@@ -70,6 +70,8 @@ export interface AnimSpec {
   /** Limbs whose end point stays planted where it is in `plantFrame` (two-bone IK every frame). */
   plant?: Limb[];
   plantFrame?: number;
+  /** Hands resting on a body point (hips, belly, chest), solved with arm IK every frame. */
+  handsAt?: Partial<Record<'l' | 'r', { bone: 'root' | 'spine' | 'chest' | 'head'; at: [number, number, number] }>>;
   /** Planted hands lie palm-down on the support (default true for planted hands). */
   flatHands?: boolean;
   /** Camera: azimuth/elevation (deg), zoom (>1 = closer), orbit amplitude (deg) for the gentle auto-orbit. */

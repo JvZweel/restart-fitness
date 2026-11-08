@@ -112,7 +112,7 @@ describe.each(IDS)('rig: %s', (id) => {
       for (const [name, p] of Object.entries(f.joints)) {
         expect(Number.isFinite(p.x + p.y + p.z), name).toBe(true);
       }
-      expect(f.minY, 'lowest body point').toBeGreaterThan(-0.015);
+      expect(f.minY, `lowest body point ${f.minAt}`).toBeGreaterThan(-0.015);
       for (const b of f.bells) expect(b.y, 'dumbbell above the floor').toBeGreaterThan(0.04);
     }
   });
@@ -140,6 +140,20 @@ describe.each(IDS)('rig: %s', (id) => {
       for (const f of frames) {
         const p = f.joints[side];
         expect(Math.hypot(p.x - p0.x, p.z - p0.z), 'slide').toBeLessThan(0.02);
+      }
+    });
+  }
+
+  if (spec.ground === 'stand' && (spec.anchor ?? 'feet') === 'feet') {
+    it('stays balanced: centre of mass over the feet', () => {
+      for (const f of frames) {
+        if (f.support.length < 2) continue;
+        const zs = f.support.map((p) => p.z);
+        const xs = f.support.map((p) => p.x);
+        expect(f.com.z, 'COM front/back').toBeGreaterThan(Math.min(...zs) - 0.03);
+        expect(f.com.z, 'COM front/back').toBeLessThan(Math.max(...zs) + 0.03);
+        expect(f.com.x, 'COM side').toBeGreaterThan(Math.min(...xs) - 0.05);
+        expect(f.com.x, 'COM side').toBeLessThan(Math.max(...xs) + 0.05);
       }
     });
   }

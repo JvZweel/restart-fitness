@@ -147,13 +147,13 @@ export function buildTimeline(spec: AnimSpec): Timeline {
   const knotFrame: number[] = [];
   let t = 0;
   for (let i = 0; i < n; i++) {
-    if (i > 0) t += frames[i].move ?? 0.9;
+    if (i > 0) t += Math.max(1e-3, frames[i].move ?? 0.9);
     keyTimes.push(t);
     knotT.push(t); knotV.push(vecs[i]); knotFrame.push(i);
     const hold = frames[i].hold ?? 0.25;
     if (hold > 1e-6 && n > 1) { t += hold; knotT.push(t); knotV.push(vecs[i]); knotFrame.push(i); }
   }
-  const total = n > 1 ? t + (frames[0].move ?? 0.9) : Math.max(1, frames[0].hold ?? 1);
+  const total = n > 1 ? t + Math.max(1e-3, frames[0].move ?? 0.9) : Math.max(1, frames[0].hold ?? 1);
   const K = knotT.length;
 
   // Monotone tangents per knot and channel (cyclic).

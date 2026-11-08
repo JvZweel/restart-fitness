@@ -58,18 +58,18 @@ export const ANIMS: Record<string, AnimSpec> = {
   'goblet-squat': {
     ground: 'stand', plant: ['lf', 'rf'], dumbbells: 'goblet', view: { az: 38, el: 10 },
     frames: squat(
-      { ...STAND, root: { pitch: 0 }, lSh: [14, 8], rSh: [14, 8], lEl: 140, rEl: 140, lHip: [0, 10, 8], rHip: [0, 10, 8], spine: [2] },
-      { root: { pitch: 18 }, spine: [8], chest: [1], lHip: [70, 12, 9], rHip: [70, 12, 9], lKn: 78, rKn: 78, neck: -18 },
-      { root: { pitch: 24 }, spine: [12], chest: [2], lHip: [124, 15, 10], rHip: [124, 15, 10], lKn: 126, rKn: 126, neck: -30 },
+      { ...STAND, root: { pitch: 0 }, lSh: [14, 8], rSh: [14, 8], lEl: 140, rEl: 140, lHip: [0, 9, 7], rHip: [0, 9, 7], spine: [2] },
+      { root: { pitch: 18 }, spine: [8], chest: [1], lHip: [70, 10, 7], rHip: [70, 10, 7], lKn: 78, rKn: 78, neck: -18 },
+      { root: { pitch: 24 }, spine: [12], chest: [2], lHip: [124, 11, 6], rHip: [124, 11, 6], lKn: 126, rKn: 126, neck: -30 },
       { holdB: 0.45 },
     ),
   },
   'bw-squat': {
     ground: 'stand', plant: ['lf', 'rf'], view: { az: 38, el: 10 },
     frames: squat(
-      { ...STAND, root: { pitch: 0 }, lSh: [12, 8], rSh: [12, 8], lHip: [0, 10, 8], rHip: [0, 10, 8] },
-      { root: { pitch: 18 }, spine: [8], chest: [1], lHip: [70, 12, 9], rHip: [70, 12, 9], lKn: 78, rKn: 78, lSh: [52, 8], rSh: [52, 8], lEl: 5, rEl: 5, neck: -16 },
-      { root: { pitch: 22 }, spine: [12], chest: [2], lHip: [122, 15, 10], rHip: [122, 15, 10], lKn: 126, rKn: 126, lSh: [72, 8], rSh: [72, 8], lEl: 4, rEl: 4, neck: -24 },
+      { ...STAND, root: { pitch: 0 }, lSh: [12, 8], rSh: [12, 8], lHip: [0, 9, 7], rHip: [0, 9, 7] },
+      { root: { pitch: 18 }, spine: [8], chest: [1], lHip: [70, 10, 7], rHip: [70, 10, 7], lKn: 78, rKn: 78, lSh: [64, 8], rSh: [64, 8], lEl: 5, rEl: 5, neck: -16 },
+      { root: { pitch: 22 }, spine: [12], chest: [2], lHip: [122, 11, 6], rHip: [122, 11, 6], lKn: 126, rKn: 126, lSh: [98, 8], rSh: [98, 8], lEl: 4, rEl: 4, neck: -24 },
       { ecc: 2.4, holdB: 0.8, tA: 0.2, tB: 0.9 },
     ),
   },
@@ -86,15 +86,15 @@ export const ANIMS: Record<string, AnimSpec> = {
     ground: 'stand', anchor: 'l', dumbbells: 'both', grip: 'neutral', view: { az: 80, el: 8 },
     frames: [
       { pose: { ...STAND, ...SIDES, pinR: [-0.1, 0.085, 0, 0], rHip: [0, 4], rKn: 0 }, hold: 0.45, move: 1.2, phase: 'con', tension: 0.3 },
-      { pose: { spine: [6], lHip: [84, 3], lKn: 94, rHip: [-6, 4], rKn: 96, pinR: [-0.1, 0.17, -0.84, 1], rFoot: 26, neck: -6 }, hold: 0.4, move: 2.0, phase: 'ecc', tension: 1 },
+      { pose: { spine: [6], lHip: [84, 3], lKn: 94, rHip: [-4, 4], rKn: 92, pinR: [-0.1, 0.2, -0.8, 1], rFoot: 30, neck: -6 }, hold: 0.4, move: 2.0, phase: 'ecc', tension: 1 },
     ],
   },
   'step-up': {
     ground: 'fixed', dumbbells: 'both', grip: 'neutral', view: { az: 72, el: 10 },
     bench: { kind: 'flat', z: 0.42, yaw: 90 },
     frames: [
-      { pose: { ...SIDES, root: { y: 0.96, z: 0.02 }, spine: [12], lSh: [12, 10], rSh: [12, 10], lHip: [70, 3], rHip: [4, 3], lKn: 80, rKn: 6, pinL: [0.1, 0.53, 0.42, 1], pinR: [-0.1, 0.085, -0.02, 1], neck: -6 }, hold: 0.35, move: 1.9, phase: 'ecc', tension: 0.45 },
-      { pose: { root: { y: 1.45, z: 0.38 }, spine: [3], lSh: [3, 10], rSh: [3, 10], lHip: [2, 3], lKn: 2, rHip: [-4, 3], rKn: 40, pinR: [-0.1, 0.085, -0.02, 0], rFoot: 20, neck: 0 }, hold: 0.35, move: 1.4, phase: 'con', tension: 1 },
+      { pose: { ...SIDES, root: { y: 0.96, z: 0.02 }, spine: [12], lSh: [12, 17], rSh: [12, 12], lHip: [70, 3], rHip: [4, 3], lKn: 80, rKn: 6, pinL: [0.1, 0.53, 0.42, 1], pinR: [-0.1, 0.085, -0.02, 1], neck: -6 }, hold: 0.35, move: 1.9, phase: 'ecc', tension: 0.45 },
+      { pose: { root: { y: 1.45, z: 0.38 }, spine: [3], lSh: [3, 12], rSh: [3, 12], lHip: [2, 3], lKn: 2, rHip: [-4, 3], rKn: 40, pinR: [-0.1, 0.085, -0.02, 0], rFoot: 20, neck: 0 }, hold: 0.35, move: 1.4, phase: 'con', tension: 1 },
     ],
   },
 
@@ -169,7 +169,7 @@ export const ANIMS: Record<string, AnimSpec> = {
   'decline-db-press': {
     ground: 'fixed', dumbbells: 'both', grip: 'neutral', view: { az: 64, el: 20 }, bench: { kind: 'decline', angle: -14 },
     frames: lowerFirst(
-      { root: { y: 0.6, z: 0.12, pitch: -100 }, lHip: [96, 6], rHip: [96, 6], lKn: 112, rKn: 112, lFoot: 20, rFoot: 20, lSh: [-10, 90, -88], rSh: [-10, 90, -88], lEl: 4, rEl: 4, neck: -8 },
+      { root: { y: 0.6, z: 0.12, pitch: -100 }, lHip: [56, 6], rHip: [56, 6], lKn: 96, rKn: 96, pinL: [0.1, 0.26, 0.7], pinR: [-0.1, 0.26, 0.7], lFoot: -20, rFoot: -20, lSh: [-10, 90, -88], rSh: [-10, 90, -88], lEl: 4, rEl: 4, neck: -8 },
       { lSh: [-8, 74, 0], rSh: [-8, 74, 0], lEl: 86, rEl: 86 },
       { ecc: 2.0, con: 1.0 },
     ),
@@ -337,7 +337,7 @@ export const ANIMS: Record<string, AnimSpec> = {
   'worlds-greatest': {
     ground: 'stand', anchor: 'l', view: { az: 50, el: 16 }, breath: 'free',
     frames: [
-      { pose: { ...STAND, root: { pitch: 30 }, spine: [24], chest: [6], lHip: [112, 8], lKn: 104, rHip: [-12, 4], rKn: 14, pinR: [-0.12, 0.15, -1.0], rFoot: 35, pinRH: [-0.12, 0.05, 0.2], rSh: [60, 4], rEl: 4, lSh: [96, -14], lEl: 104, neck: -16 }, move: 1.4, hold: 0.8, tension: 0.6 },
+      { pose: { ...STAND, root: { pitch: 30 }, spine: [24], chest: [6], lHip: [112, 8], lKn: 104, rHip: [-12, 4], rKn: 14, pinR: [-0.12, 0.15, -1.0], rFoot: 35, pinRH: [-0.12, 0.05, 0.2], rSh: [60, 4], rEl: 4, lSh: [58, -16], lEl: 64, neck: -16 }, move: 1.4, hold: 0.8, tension: 0.6 },
       { pose: { spine: [20, -4, 30], chest: [2, 0, 34], lSh: [70, 120, 0], lEl: 4, neck: -2, headYaw: 30 }, move: 1.8, hold: 1.0, tension: 1 },
     ],
   },
@@ -365,10 +365,10 @@ export const ANIMS: Record<string, AnimSpec> = {
     ],
   },
   'figure-four': {
-    ground: 'floor', view: { az: 40, el: 30 }, breath: 'free', idle: false,
+    ground: 'fixed', view: { az: 62, el: 26 }, breath: 'free', idle: false, flatHands: false,
     frames: [
-      { pose: { root: { pitch: -90 }, rHip: [52, 4], rKn: 104, lHip: [64, 48, 66], lKn: 96, lAnk: 0, lSh: [8, 22], rSh: [8, 22], lEl: 10, rEl: 10 }, move: 1.4, hold: 1.4, tension: 0.4 },
-      { pose: { rHip: [94, 4], rKn: 96, rAnk: 0, lHip: [102, 48, 66], lSh: [52, 12], rSh: [60, 8], lEl: 64, rEl: 64, neck: 8 }, move: 1.8, hold: 1.8, tension: 1 },
+      { pose: { root: { y: 0.125, z: 0, pitch: -90 }, neck: -6, rHip: [60, 4], rKn: 100, pinR: [-0.12, 0.085, 0.56, 1], lHip: [60, 40, 60], lKn: 100, pinL: [-0.05, 0.53, 0.3, 1], lAnk: 0, lSh: [10, 16], rSh: [10, 16], lEl: 8, rEl: 8, pinLH: [0.02, 0.4, 0.02, 0], pinRH: [-0.2, 0.4, 0.02, 0] }, move: 1.6, hold: 1.4, tension: 0.4 },
+      { pose: { rHip: [100, 4], rKn: 92, rAnk: 0, pinR: [-0.12, 0.62, 0.38, 0], pinL: [-0.04, 0.66, 0.06, 1], lHip: [96, 40, 60], lSh: [50, 10], rSh: [56, 6], lEl: 60, rEl: 60, pinLH: [0.0, 0.42, -0.02, 1], pinRH: [-0.2, 0.42, -0.02, 1], neck: 4 }, move: 2.0, hold: 2.0, tension: 1 },
     ],
   },
   'childs-pose': {
@@ -400,11 +400,11 @@ export const ANIMS: Record<string, AnimSpec> = {
   thruster: {
     ground: 'stand', plant: ['lf', 'rf'], dumbbells: 'both', grip: 'neutral', view: { az: 38, el: 8 },
     frames: [
-      { pose: { ...STAND, lHip: [0, 10, 8], rHip: [0, 10, 8], lSh: [42, 22], rSh: [42, 22], lEl: 142, rEl: 142 }, move: 0.6, hold: 0.15, phase: 'ecc', tension: 0.4 },
-      { pose: { root: { pitch: 18 }, spine: [8], lHip: [70, 12, 9], rHip: [70, 12, 9], lKn: 78, rKn: 78, neck: -16 }, move: 0.5, hold: 0, phase: 'ecc', tension: 0.7 },
-      { pose: { root: { pitch: 22 }, spine: [12], lHip: [120, 15, 10], rHip: [120, 15, 10], lKn: 124, rKn: 124, neck: -28 }, move: 0.55, hold: 0.1, phase: 'ecc', tension: 0.9 },
-      { pose: { root: { pitch: 18 }, spine: [8], lHip: [70, 12, 9], rHip: [70, 12, 9], lKn: 78, rKn: 78, neck: -16, lSh: [70, 18], rSh: [70, 18], lEl: 120, rEl: 120 }, move: 0.45, hold: 0, phase: 'con', tension: 1 },
-      { pose: { root: { pitch: 0 }, spine: [0], lHip: [0, 10, 8], rHip: [0, 10, 8], lKn: 0, rKn: 0, lSh: [174, 10], rSh: [174, 10], lEl: 6, rEl: 6, neck: 0 }, move: 1.0, hold: 0.3, phase: 'con', tension: 1 },
+      { pose: { ...STAND, lHip: [0, 9, 7], rHip: [0, 9, 7], lSh: [42, 22], rSh: [42, 22], lEl: 142, rEl: 142 }, move: 0.6, hold: 0.15, phase: 'ecc', tension: 0.4 },
+      { pose: { root: { pitch: 18 }, spine: [8], lHip: [70, 10, 7], rHip: [70, 10, 7], lKn: 78, rKn: 78, neck: -16 }, move: 0.5, hold: 0, phase: 'ecc', tension: 0.7 },
+      { pose: { root: { pitch: 22 }, spine: [12], lHip: [120, 11, 6], rHip: [120, 11, 6], lKn: 124, rKn: 124, neck: -28 }, move: 0.55, hold: 0.1, phase: 'ecc', tension: 0.9 },
+      { pose: { root: { pitch: 18 }, spine: [8], lHip: [70, 10, 7], rHip: [70, 10, 7], lKn: 78, rKn: 78, neck: -16, lSh: [70, 18], rSh: [70, 18], lEl: 120, rEl: 120 }, move: 0.45, hold: 0, phase: 'con', tension: 1 },
+      { pose: { root: { pitch: 0 }, spine: [0], lHip: [0, 9, 7], rHip: [0, 9, 7], lKn: 0, rKn: 0, lSh: [174, 10], rSh: [174, 10], lEl: 6, rEl: 6, neck: 0 }, move: 1.0, hold: 0.3, phase: 'con', tension: 1 },
     ],
   },
   'farmer-march': {

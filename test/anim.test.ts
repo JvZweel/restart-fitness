@@ -81,6 +81,11 @@ describe('timeline (monotone cubic splines)', () => {
     expect(Math.abs(f(k1 + 0.03) - f(k1 - 0.03))).toBeGreaterThan(0.5);
   });
 
+  it('stays finite with zero-length moves and holds', () => {
+    const z = buildTimeline({ ground: 'stand', frames: [{ pose: { lKn: 0 }, hold: 0, move: 0, tension: 0 }, { pose: { lKn: 90 }, hold: 0, move: 0, tension: 1 }] });
+    for (let t = 0; t < 1; t += 0.01) for (const v of z.sample(t).values) expect(Number.isFinite(v)).toBe(true);
+  });
+
   it('round-trips a pose through its channels', () => {
     const v = flattenPose({ lSh: [10, 20, 30], root: { pitch: 45 } });
     expect(v[ch('lSh0')]).toBe(10);

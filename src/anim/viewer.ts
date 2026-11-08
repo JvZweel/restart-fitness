@@ -19,6 +19,10 @@ export interface Viewer {
   orbit(deg: number): void;
   /** Faint dumbbell path trails. */
   setTrails(on: boolean): void;
+  /** Turn auto-orbit and idle sway off/on when the OS reduced-motion preference changes. */
+  setReducedMotion(on: boolean): void;
+  /** Renderer cost of the last frame (draw calls, triangles, pixel ratio). */
+  stats(): { calls: number; triangles: number; pixelRatio: number; geometries: number };
   dispose(): void;
 }
 
@@ -130,7 +134,8 @@ export function createViewer(canvas: HTMLCanvasElement, opts: ViewerOptions): Vi
   let azVel = 0;
   let disposed = false;
   let slowFrames = 0;
-  const reduced = !!opts.reducedMotion;
+  let reduced = !!opts.reducedMotion;
+  let lastSize = '';
 
   const applyPixelRatio = (w: number, h: number) => {
     const cap = Math.sqrt(MAX_PIXELS / Math.max(1, w * h));
@@ -142,7 +147,9 @@ export function createViewer(canvas: HTMLCanvasElement, opts: ViewerOptions): Vi
     const w = canvas.clientWidth || 300;
     const h = canvas.clientHeight || 300;
     applyPixelRatio(w, h);
-    if (canvas.width !== Math.round(w * renderer.getPixelRatio()) || canvas.height !== Math.round(h * renderer.getPixelRatio())) {
+    const key = `${w}x${h}@${renderer.getPixelRatio()}`;
+    if (key !== lastSize) {
+      lastSize = key;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
@@ -315,9 +322,15 @@ export function createViewer(canvas: HTMLCanvasElement, opts: ViewerOptions): Vi
   };
   const kick = () => { if (!raf && !disposed) { last = performance.now(); raf = requestAnimationFrame(loop); } };
 
-  const down = (e: PointerEvent) => { dragX = e.clientX; dragY = e.clientY; azVel = 0; lastDrag = performance.now(); canvas.setPointerCapture(e.pointerId); };
+  let dragId: number | null = null;
+  const down = (e: PointerEvent) => {
+    if (dragId != null) return;
+    dragId = e.pointerId;
+    dragX = e.clientX; dragY = e.clientY; azVel = 0; lastDrag = performance.now();
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* synthetic pointer */ }
+  };
   const move = (e: PointerEvent) => {
-    if (dragX == null) return;
+    if (dragX == null || e.pointerId !== dragId) return;
     const dx = e.clientX - dragX;
     userAz -= dx * 0.45;
     if (e.pointerType !== 'touch') el = THREE.MathUtils.clamp(el + (e.clientY - dragY) * 0.25, 0, 48);
@@ -330,12 +343,17 @@ export function createViewer(canvas: HTMLCanvasElement, opts: ViewerOptions): Vi
     placeCamera();
     if (!playing) draw();
   };
-  const up = () => { dragX = null; lastDrag = performance.now(); };
+  const up = (e: PointerEvent) => {
+    if (e.pointerId !== dragId) return;
+    dragX = null; dragId = null; lastDrag = performance.now();
+    try { canvas.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+  };
   if (opts.interactive !== false) {
     canvas.addEventListener('pointerdown', down);
     canvas.addEventListener('pointermove', move);
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
+    canvas.addEventListener('lostpointercapture', up);
   }
 
   return {
@@ -356,6 +374,7 @@ export function createViewer(canvas: HTMLCanvasElement, opts: ViewerOptions): Vi
       const h = canvas.clientHeight || 300;
       applyPixelRatio(w, h);
       renderer.setSize(w, h, false);
+      lastSize = `${w}x${h}@${renderer.getPixelRatio()}`;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       fit();
@@ -393,6 +412,17 @@ export function createViewer(canvas: HTMLCanvasElement, opts: ViewerOptions): Vi
     setPlaying(on) { playing = on; if (on) kick(); },
     orbit(deg) { userAz -= deg; lastDrag = performance.now(); placeCamera(); if (!playing) { resize(); draw(); } },
     setTrails(on) { trailsOn = on; trailGroup.visible = on; if (!playing) draw(); },
+    setReducedMotion(on) {
+      if (on === reduced) return;
+      reduced = on;
+      if (on) { azVel = 0; orbitClock = 0; }
+      fit();
+      if (!playing) draw();
+    },
+    stats() {
+      const i = renderer.info;
+      return { calls: i.render.calls, triangles: i.render.triangles, pixelRatio: renderer.getPixelRatio(), geometries: i.memory.geometries };
+    },
     dispose() {
       disposed = true;
       if (raf) cancelAnimationFrame(raf);
@@ -400,7 +430,12 @@ export function createViewer(canvas: HTMLCanvasElement, opts: ViewerOptions): Vi
       canvas.removeEventListener('pointermove', move);
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
+      canvas.removeEventListener('lostpointercapture', up);
       for (const t of trails) t.line.geometry.dispose();
+      man.dispose();
+      for (const m of [disc, shadowFloor] as THREE.Mesh[]) m.geometry.dispose();
+      blobGeo.dispose();
+      for (const m of [floorMat, shadowMat, trailMat, ...[bodyBlob, ...footBlobs].map((b) => b.material as THREE.Material)]) m.dispose();
       floorTex.dispose();
       blobTex.dispose();
       renderer.dispose();

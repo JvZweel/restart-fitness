@@ -9,7 +9,7 @@ const D = THREE.MathUtils.degToRad;
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
 export interface Palette { body: number; primary: number; secondary: number; glow: number; bench: number; frame: number; iron: number; steel: number }
-export const PALETTE_LIGHT: Palette = { body: 0xd4d8dc, primary: 0x3fa89c, secondary: 0x9ccfc8, glow: 0x14b8a6, bench: 0x2b3136, frame: 0x6f7880, iron: 0x33393f, steel: 0xb9c0c6 };
+export const PALETTE_LIGHT: Palette = { body: 0xd4d8dc, primary: 0x6fbdb3, secondary: 0xb2d6d1, glow: 0x0fb5a3, bench: 0x2b3136, frame: 0x6f7880, iron: 0x33393f, steel: 0xb9c0c6 };
 export const PALETTE_DARK: Palette = { body: 0x8e979f, primary: 0x34b3a4, secondary: 0x5f9a94, glow: 0x2dd4bf, bench: 0x1b2024, frame: 0x4c555d, iron: 0x262b30, steel: 0x8d969d };
 
 type JointName = 'root' | 'spine' | 'spine2' | 'chest' | 'neck' | 'head' | 'lClav' | 'rClav' | 'lSh' | 'rSh' | 'lEl' | 'rEl' | 'lHand' | 'rHand'
@@ -20,12 +20,12 @@ export const BONES = { thigh: 0.45, shin: 0.43, upperArm: 0.29, forearm: 0.265, 
 
 // ── Geometry helpers ─────────────────────────────────────────────
 /** Smooth rotationally symmetric segment hanging along -Y from the joint. ctrl = [u (0..1 along L), radius]. */
-function limbGeo(L: number, ctrl: [number, number][], radial = 18): THREE.BufferGeometry {
+function limbGeo(L: number, ctrl: [number, number][], radial = 16): THREE.BufferGeometry {
   const rt = ctrl[0][1];
   const rb = ctrl[ctrl.length - 1][1];
   const pts = [V(0, rt * 0.92).setZ(0), V(rt * 0.7, rt * 0.62), ...ctrl.map(([u, r]) => V(r, -u * L)), V(rb * 0.7, -L - rb * 0.62), V(0, -L - rb * 0.92)];
   const curve = new THREE.SplineCurve(pts.map((p) => new THREE.Vector2(p.x, p.y)));
-  const prof = curve.getPoints(Math.max(16, ctrl.length * 4)).reverse();
+  const prof = curve.getPoints(Math.max(14, ctrl.length * 3)).reverse();
   prof[0].x = 0;
   prof[prof.length - 1].x = 0;
   for (const p of prof) p.x = Math.max(0, p.x);
@@ -33,7 +33,7 @@ function limbGeo(L: number, ctrl: [number, number][], radial = 18): THREE.Buffer
 }
 
 /** Lathe from explicit (radius, y) profile points, top to bottom. */
-function profileGeo(pts: [number, number][], radial = 22, div = 28): THREE.BufferGeometry {
+function profileGeo(pts: [number, number][], radial = 20, div = 22): THREE.BufferGeometry {
   const curve = new THREE.SplineCurve(pts.map(([r, y]) => new THREE.Vector2(r, y)));
   const prof = curve.getPoints(div).reverse();
   prof[0].x = 0;
@@ -42,7 +42,7 @@ function profileGeo(pts: [number, number][], radial = 22, div = 28): THREE.Buffe
   return new THREE.LatheGeometry(prof, radial);
 }
 
-const SPHERE = new THREE.SphereGeometry(1, 22, 16);
+const SPHERE = new THREE.SphereGeometry(1, 18, 12);
 const mtx = (pos: [number, number, number], scale: [number, number, number] = [1, 1, 1], rot: [number, number, number] = [0, 0, 0]) =>
   new THREE.Matrix4().compose(V(...pos), new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot)), V(...scale));
 
@@ -102,6 +102,12 @@ export class Mannequin {
   private tmp2 = V();
   private q = new THREE.Quaternion();
   private q2 = new THREE.Quaternion();
+  /** Scratch objects for the per-frame IK and foot solve (no allocations in the hot path). */
+  private scratch = {
+    a: V(), b: V(), c: V(), t: V(), pole: V(), cands: [V(), V(), V()],
+    q1: new THREE.Quaternion(), q2: new THREE.Quaternion(), q3: new THREE.Quaternion(), fkUpper: new THREE.Quaternion(),
+    euler: new THREE.Euler(),
+  };
 
   constructor(pal: Palette) {
     const std = (c: number, rough: number, metal = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: rough, metalness: metal });
@@ -137,7 +143,7 @@ export class Mannequin {
 
   /** Muscle glow follows the movement: brighter under tension. */
   setTension(t: number): void {
-    this.mats.primary.emissiveIntensity = 0.04 + 0.42 * t * t;
+    this.mats.primary.emissiveIntensity = 0.05 + 0.6 * t * t;
     this.mats.secondary.emissiveIntensity = 0.02 + 0.1 * t;
   }
 
@@ -171,7 +177,6 @@ export class Mannequin {
     m.position.set(...pos);
     m.scale.set(scale[0] * 0.95, scale[1] * 0.97, scale[2] * 0.95);
     m.rotation.set(...rot);
-    m.castShadow = true;
     parent.add(m);
     const list = this.muscles.get(muscle) ?? [];
     list.push(m);
@@ -204,7 +209,7 @@ export class Mannequin {
     const spine = this.joint('spine', root, 0, 0.05, 0);
     spine.add(this.bellyShape);
     this.part(spine, profileGeo([[0, 0.17], [0.12, 0.15], [0.128, 0.08], [0.14, 0.0], [0.13, -0.05], [0, -0.06]]), mtx([0, 0, -0.004], [1, 1, 0.7]));
-    this.patch('abs', this.bellyShape, [0, 0.09, 0.07], [0.068, 0.11, 0.032]);
+    this.patch('abs', this.bellyShape, [0, 0.13, 0.072], [0.066, 0.15, 0.03]);
     this.patch('obliques', this.bellyShape, [0.1, 0.07, 0.03], [0.04, 0.09, 0.06], [0, 0, -0.12]);
     this.patch('obliques', this.bellyShape, [-0.1, 0.07, 0.03], [0.04, 0.09, 0.06], [0, 0, 0.12]);
     this.patch('lowerBack', spine, [0.038, 0.08, -0.068], [0.04, 0.1, 0.035]);
@@ -221,7 +226,6 @@ export class Mannequin {
     this.part(this.chestShape, profileGeo([[0, 0.335], [0.06, 0.33], [0.12, 0.305], [0.168, 0.25], [0.178, 0.17], [0.162, 0.07], [0.14, 0.0], [0.0, -0.03]], 24), mtx([0, 0, -0.01], [1, 1, 0.66]));
     this.patch('chest', this.chestShape, [0.072, 0.2, 0.082], [0.088, 0.062, 0.042], [0.25, 0, -0.18]);
     this.patch('chest', this.chestShape, [-0.072, 0.2, 0.082], [0.088, 0.062, 0.042], [0.25, 0, 0.18]);
-    this.patch('abs', this.chestShape, [0, 0.06, 0.085], [0.065, 0.06, 0.03]);
     this.patch('upperBack', this.chestShape, [0.06, 0.19, -0.088], [0.065, 0.085, 0.036], [0, 0, 0.15]);
     this.patch('upperBack', this.chestShape, [-0.06, 0.19, -0.088], [0.065, 0.085, 0.036], [0, 0, -0.15]);
     this.patch('lats', this.chestShape, [0.12, 0.1, -0.05], [0.055, 0.13, 0.05], [0, 0, 0.28]);
@@ -307,7 +311,6 @@ export class Mannequin {
     const add = (g: THREE.BufferGeometry, m: THREE.Matrix4, parent: THREE.Object3D) => {
       const mesh = new THREE.Mesh(g, this.mats.body);
       mesh.applyMatrix4(m);
-      mesh.castShadow = true;
       parent.add(mesh);
     };
     // Palm faces medially (-x for the left hand); fingers continue down the forearm line.
@@ -328,6 +331,13 @@ export class Mannequin {
     grip.add(fist);
     hand.add(grip);
     this.grips[side] = grip;
+  }
+
+  /** Free GPU resources (geometries incl. shared ones are re-uploaded if another viewer uses them). */
+  dispose(): void {
+    this.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).geometry.dispose(); });
+    for (const g of [SPHERE, Mannequin.bellGeo?.head, Mannequin.bellGeo?.handle, Mannequin.bellGeo?.collar]) g?.dispose();
+    for (const m of Object.values(this.mats)) m.dispose();
   }
 
   setMuscles(primary: Muscle[], secondary: Muscle[] = []): void {
@@ -386,7 +396,10 @@ export class Mannequin {
     for (const b of this.bells) b.parent?.remove(b);
     this.bells = [];
     this.freeBell = null;
-    if (this.bench) this.props.remove(this.bench);
+    if (this.bench) {
+      this.props.remove(this.bench);
+      this.bench.traverse((o) => { if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).geometry.dispose(); });
+    }
     this.bench = null;
     this.benchBack = null;
     this.benchSeat = null;
@@ -486,10 +499,12 @@ export class Mannequin {
     if (kind === 'decline' || angleDeg < -5) {
       const roller = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.26, 6, 14), this.mats.bench);
       roller.rotation.z = Math.PI / 2;
-      roller.position.set(0, H + 0.1, 0.5);
+      // Leg rollers at the raised front end: shins hook under them.
+      roller.position.set(0, H - 0.1, 0.62);
       roller.castShadow = true;
       g.add(roller);
-      box(0.04, 0.2, 0.04, 0, H, 0.5);
+      box(0.04, 0.42, 0.04, 0, 0.21, 0.62);
+      box(0.04, 0.04, 0.26, 0, 0.065, 0.5);
     }
     return g;
   }
@@ -579,6 +594,7 @@ export class Mannequin {
     this.setFeet(pe);
     this.figure.updateMatrixWorld(true);
     if (!noPlants) this.flattenHands(spec);
+    this.restHands(spec);
     this.placeFreeBellAfter(spec);
     this.figure.updateMatrixWorld(true);
   }
@@ -601,18 +617,18 @@ export class Mannequin {
 
   /** Foot orientation: world pitch with the heading of the leg (or a local ankle angle blend). */
   private setFeet(p: PoseExt): void {
+    const S = this.scratch;
     for (const s of ['l', 'r'] as const) {
       const ank = this.j[`${s}Ank`];
-      const kn = this.j[`${s}Kn`];
-      kn.getWorldQuaternion(this.q);
-      const heading = this.heading([this.tmp.set(0, 0, 1).applyQuaternion(this.q).clone(), this.tmp.set(0, 0, 1).applyQuaternion(this.j.root.getWorldQuaternion(this.q2)).clone(), this.tmp.set(0, 1, 0).applyQuaternion(this.q2).clone()]);
-      const desired = new THREE.Quaternion().setFromEuler(new THREE.Euler(D(p[`${s}Foot`] ?? 0), heading, 0, 'YXZ'));
-      const local = this.q.clone().invert().multiply(desired);
+      this.j[`${s}Kn`].getWorldQuaternion(this.q);
+      this.j.root.getWorldQuaternion(this.q2);
+      S.cands[0].set(0, 0, 1).applyQuaternion(this.q);
+      S.cands[1].set(0, 0, 1).applyQuaternion(this.q2);
+      S.cands[2].set(0, 1, 0).applyQuaternion(this.q2);
+      S.euler.set(D(p[`${s}Foot`] ?? 0), this.heading(S.cands), 0, 'YXZ');
+      const local = this.q.invert().multiply(S.q1.setFromEuler(S.euler));
       const w = p[`${s}AnkW`] ?? (p[`${s}Ank`] != null ? 1 : 0);
-      if (w > 0) {
-        const lq = new THREE.Quaternion().setFromEuler(new THREE.Euler(D(p[`${s}Ank`] ?? 0), 0, 0));
-        local.slerp(lq, w);
-      }
+      if (w > 0) local.slerp(S.q2.setFromEuler(S.euler.set(D(p[`${s}Ank`] ?? 0), 0, 0, 'XYZ')), w);
       ank.quaternion.copy(local);
       ank.updateMatrixWorld(true);
     }
@@ -633,42 +649,43 @@ export class Mannequin {
    * hinge: +1 knee (bends backward, points forward), -1 elbow (points backward).
    */
   private solve(upper: THREE.Object3D, mid: THREE.Object3D, end: THREE.Object3D, target: THREE.Vector3, w: number, hinge: 1 | -1): void {
-    const a = upper.getWorldPosition(V());
-    const b = mid.getWorldPosition(V());
-    const c = end.getWorldPosition(V());
+    const S = this.scratch;
+    const a = upper.getWorldPosition(S.a);
+    const b = mid.getWorldPosition(S.b);
+    const c = end.getWorldPosition(S.c);
     const L1 = a.distanceTo(b);
     const L2 = b.distanceTo(c);
-    const fkUpper = upper.quaternion.clone();
+    S.fkUpper.copy(upper.quaternion);
     const fkMid = mid.rotation.x;
-    const upperWorld = upper.getWorldQuaternion(new THREE.Quaternion());
-    const poleDir = V(0, 0, hinge).applyQuaternion(upperWorld);
-    const d = Math.min(L1 + L2 - 1e-4, Math.max(Math.abs(L1 - L2) + 1e-3, a.distanceTo(target)));
+    const poleDir = S.pole.set(0, 0, hinge).applyQuaternion(upper.getWorldQuaternion(S.q1));
+    const dist = a.distanceTo(target);
+    if (dist < 1e-6 || L1 < 1e-6 || L2 < 1e-6) return;
+    const d = Math.min(L1 + L2 - 1e-4, Math.max(Math.abs(L1 - L2) + 1e-3, dist));
     const interior = Math.acos(Math.min(1, Math.max(-1, (L1 * L1 + L2 * L2 - d * d) / (2 * L1 * L2))));
     mid.rotation.x = hinge * (Math.PI - interior);
     upper.updateMatrixWorld(true);
-    // Swing.
-    const c1 = end.getWorldPosition(V()).sub(a).normalize();
-    const t1 = target.clone().sub(a).normalize();
-    const swing = new THREE.Quaternion().setFromUnitVectors(c1, t1);
-    const parentWorld = upper.parent!.getWorldQuaternion(new THREE.Quaternion());
-    const newWorld = swing.multiply(upper.getWorldQuaternion(new THREE.Quaternion()));
-    upper.quaternion.copy(parentWorld.clone().invert().multiply(newWorld));
+    // Swing the chain onto the target.
+    const c1 = end.getWorldPosition(S.c).sub(a);
+    const t1 = S.t.copy(target).sub(a).normalize();
+    if (c1.lengthSq() < 1e-12) return;
+    c1.normalize();
+    const parentInv = upper.parent!.getWorldQuaternion(S.q2).invert();
+    S.q3.setFromUnitVectors(c1, t1).multiply(upper.getWorldQuaternion(S.q1));
+    upper.quaternion.copy(parentInv).multiply(S.q3);
     upper.updateMatrixWorld(true);
-    // Twist to keep the bend direction close to the FK pole.
-    const axis = t1;
-    const cur = V(0, 0, hinge).applyQuaternion(upper.getWorldQuaternion(new THREE.Quaternion()));
-    const pc = cur.sub(axis.clone().multiplyScalar(cur.dot(axis)));
-    const pp = poleDir.sub(axis.clone().multiplyScalar(poleDir.dot(axis)));
+    // Twist about the root → target axis so the knee/elbow keeps its FK bend direction.
+    const cur = S.b.set(0, 0, hinge).applyQuaternion(upper.getWorldQuaternion(S.q1));
+    const pc = cur.addScaledVector(t1, -cur.dot(t1));
+    const pp = poleDir.addScaledVector(t1, -poleDir.dot(t1));
     if (pc.lengthSq() > 1e-6 && pp.lengthSq() > 1e-6) {
       pc.normalize();
       pp.normalize();
-      const ang = Math.atan2(pc.clone().cross(pp).dot(axis), pc.dot(pp));
-      const tw = new THREE.Quaternion().setFromAxisAngle(axis, ang);
-      const w2 = tw.multiply(upper.getWorldQuaternion(new THREE.Quaternion()));
-      upper.quaternion.copy(parentWorld.clone().invert().multiply(w2));
+      const ang = Math.atan2(S.c.copy(pc).cross(pp).dot(t1), pc.dot(pp));
+      S.q3.setFromAxisAngle(t1, ang).multiply(upper.getWorldQuaternion(S.q1));
+      upper.quaternion.copy(parentInv).multiply(S.q3);
     }
     if (w < 1) {
-      upper.quaternion.copy(fkUpper.slerp(upper.quaternion.clone(), w));
+      upper.quaternion.copy(S.fkUpper.slerp(upper.quaternion, w));
       mid.rotation.x = fkMid + (mid.rotation.x - fkMid) * w;
     }
     upper.updateMatrixWorld(true);
@@ -693,6 +710,36 @@ export class Mannequin {
       const desired = new THREE.Quaternion().setFromRotationMatrix(mw.multiply(ml.transpose()));
       const parent = hand.parent!.getWorldQuaternion(new THREE.Quaternion());
       hand.quaternion.copy(parent.invert().multiply(desired));
+      hand.updateMatrixWorld(true);
+    }
+  }
+
+  /** Hands resting on the body (hips, belly, chest): palm against the body, fingers forward or across. */
+  private restHands(spec: AnimSpec): void {
+    if (!spec.handsAt) return;
+    for (const s of ['l', 'r'] as const) {
+      const h = spec.handsAt[s];
+      if (!h) continue;
+      const sx = s === 'l' ? 1 : -1;
+      const bone = this.j[h.bone];
+      const bq = bone.getWorldQuaternion(new THREE.Quaternion());
+      const hand = this.j[`${s}Hand`];
+      const target = bone.localToWorld(V(...h.at));
+      const axis = bone.localToWorld(V(0, h.at[1], 0));
+      const n = axis.sub(target);
+      if (n.lengthSq() < 1e-8) n.set(0, 0, -1).applyQuaternion(bq);
+      n.normalize();
+      const side = Math.abs(h.at[0]) > Math.abs(h.at[2]);
+      const pref = side ? V(0, 0, 1).applyQuaternion(bq) : V(-Math.sign(h.at[0] || sx), 0.4, 0).applyQuaternion(bq);
+      const f = pref.sub(n.clone().multiplyScalar(pref.dot(n)));
+      if (f.lengthSq() < 1e-8) f.set(0, 1, 0).applyQuaternion(bq).addScaledVector(n, -n.y);
+      f.normalize();
+      const mw = new THREE.Matrix4().makeBasis(f, n, f.clone().cross(n));
+      const fl = V(0, -1, 0);
+      const nl = V(-sx, 0, 0);
+      const ml = new THREE.Matrix4().makeBasis(fl, nl, fl.clone().cross(nl));
+      const desired = new THREE.Quaternion().setFromRotationMatrix(mw.multiply(ml.transpose()));
+      hand.quaternion.copy(hand.parent!.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desired));
       hand.updateMatrixWorld(true);
     }
   }

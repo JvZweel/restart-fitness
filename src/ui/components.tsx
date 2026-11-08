@@ -141,10 +141,12 @@ export function AnimStage(props: { anim: string; primary: Muscle[]; secondary?: 
   useEffect(() => {
     let cancelled = false;
     let io: IntersectionObserver | null = null;
+    let motionQuery: MediaQueryList | null = null;
+    const onMotionPref = (e: MediaQueryListEvent) => viewerRef.current?.setReducedMotion(e.matches);
     import('../anim/viewer').then(({ createViewer }) => {
       if (cancelled || !canvasRef.current) return;
       try {
-        const v = createViewer(canvasRef.current, { dark: isDark.value });
+        const v = createViewer(canvasRef.current, { dark: isDark.value, reducedMotion: prefersReducedMotion() });
         viewerRef.current = v;
         const p = latest.current;
         v.setAnim(p.anim, p.primary, p.secondary);
@@ -153,11 +155,18 @@ export function AnimStage(props: { anim: string; primary: Muscle[]; secondary?: 
         io = new IntersectionObserver(([e]) => { visible.current = e.isIntersecting; sync(); });
         io.observe(canvasRef.current);
         document.addEventListener('visibilitychange', sync);
+        sync();
+        if (typeof matchMedia === 'function') {
+          motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+          motionQuery.addEventListener?.('change', onMotionPref);
+        }
       } catch {
+        viewerRef.current?.dispose();
+        viewerRef.current = null;
         setState('error');
       }
     }).catch(() => setState('error'));
-    return () => { cancelled = true; io?.disconnect(); document.removeEventListener('visibilitychange', sync); viewerRef.current?.dispose(); viewerRef.current = null; };
+    return () => { cancelled = true; io?.disconnect(); motionQuery?.removeEventListener?.('change', onMotionPref); document.removeEventListener('visibilitychange', sync); viewerRef.current?.dispose(); viewerRef.current = null; };
   }, []);
 
   useEffect(() => {

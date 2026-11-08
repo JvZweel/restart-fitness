@@ -1,12 +1,14 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import pkg from './package.json' with { type: 'json' };
 
 // BASE: '/' for local dev, '/restart-fitness/' for GitHub Pages (set via env at build time).
 const base = process.env.BASE_PATH ?? '/';
 
 export default defineConfig({
   base,
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   plugins: [
     preact(),
     VitePWA({

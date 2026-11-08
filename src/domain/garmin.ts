@@ -67,7 +67,7 @@ export function parseNumber(raw: string): number | null {
   const s = raw.replace(/\s/g, '').replace(/[^\d.,-]/g, '');
   if (!s || s === '--' || s === '-') return null;
   // "10,234" (thousands) vs "104,2" (decimal comma)
-  let norm = s;
+  let norm: string;
   if (/^\d{1,3}(,\d{3})+$/.test(s)) norm = s.replace(/,/g, '');
   else if (/^\d+,\d+$/.test(s)) norm = s.replace(',', '.');
   else norm = s.replace(/,/g, '');

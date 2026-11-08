@@ -28,9 +28,73 @@ Last updated: 2026-11-08
 - Bugs fixed (with tests): progression could suggest a weight no longer in the list; backup import accepted malformed sets/daily values/settings that could break charts and timers; a swap to an unknown exercise id survived import; auto-rest started after the session's last open set when it wasn't on the last exercise; after logging a set, an earlier skipped open set wasn't selected; storage write failures were unhandled promise rejections (now reported); photo import decoded data URLs with `fetch()` (now decoded locally); `npm run lint` failed on the e2e script (undeclared globals).
 - Bugs fixed from an independent code review: Progress crashed for one render after deleting the only session of the selected lift; removing a set could hide the set editor while sets were still open; a paused rest stayed "paused" (with a stale Resume) after logging the next set started a new rest; resuming a paused rest reset the progress bar; backups with unknown exercise ids or a non-numeric start time could crash screens (now dropped on import, tested); the 3D viewer could start with the previous exercise's animation after fast navigation; a failed "Always" swap or discard was an unhandled rejection; a failed `startWorkout` write left a ghost session.
 
+## Animation upgrade (this pass, 2026-11-08)
+
+The 3D demonstrations were rebuilt end to end: figure, motion engine, lighting/camera and every move. The app flow, test IDs, offline behaviour and session UI are unchanged.
+
+**Figure (src/anim/mannequin.ts)**
+- Sculpted studio mannequin instead of ellipsoid/capsule "puppet": smooth lathe-profiled tapered segments (thigh, shin, upper arm, forearm), ribcage with V-taper, pelvis bowl, pecs, deltoids (front/rear), lats, traps, glutes, two-headed calves, egg-shaped head with jaw, neck, clavicles, two-segment spine (lumbar + lower thoracic), shaped feet with instep.
+- Hands: open hands for planted/resting poses, and fists that wrap around the dumbbell handle (grip frame rotates for neutral/supinated/pronated).
+- Hex rubber dumbbells with steel handle and collars; padded bench (rounded extruded pads, steel frame, incline strut, decline leg rollers at the front end).
+- Matte material (roughness 0.6), static body merged per joint (few draw calls); muscle groups are separate meshes so they can glow.
+
+**Motion (src/anim/motion.ts, poses.ts)**
+- Keyframes are flattened into channels and interpolated with cyclic monotone cubic Hermite splines (Fritsch–Carlson): eased stops at pauses, smooth pass-through where there is no pause, never overshooting a keyframe.
+- Every keyframe carries a tempo phase (eccentric / concentric / flow) and a tension value. Lifts use a controlled ~2 s eccentric, a short pause and a ~1–1.2 s concentric.
+- Breathing: the ribcage expands on the inhale and the belly braces under load; for lifts the inhale/brace is on the eccentric and the exhale on the concentric. Stretches and holds breathe freely; box breathing runs 4-4-4-4.
+- Muscle glow follows tension (brighter at the hardest point of the rep).
+- Generic 3D two-bone IK for feet and hands with the knee/elbow bend direction kept from the authored pose; planted limbs (hands in push-ups, cat-cow, climbers; feet in squats, hinges, push-ups) stay on their marks; feet auto-flatten to the floor following the leg's heading; planted palms lie flat; resting hands (hips, chest, belly) lie palm-to-body.
+- Scapulohumeral rhythm: the clavicle elevates as the arm rises above ~60°.
+- Squats pass through a mid-depth key so knees and hips break together and the centre of mass stays over the feet; hinges push the hips back with a neutral spine.
+- Re-authored all moves with correct bench angles (incline press 38°, incline curl 55°, upright seat 80°, decline −14° with shins hooked under the rollers), press arm planes (elbows out with forearms vertical, lockout over the shoulders), neutral/supinated/pronated grips, goblet hold at the upper chest, two-hand bell for pullover/overhead extension/sumo, bell across the hips for hip thrusts.
+
+**Stage (src/anim/viewer.ts)**
+- Studio key/fill/rim (+ second rim) lighting that turns with the camera, soft PCF shadows, a soft floor disc, and contact shadows under the torso and each foot (fade as the foot lifts).
+- Subtle idle: thorax micro-sway and gaze drift (off for floor/core moves and under reduced motion).
+- Optional faint dumbbell path trails (full path + comet tail); on by default, toggle in anim.html.
+- Exercise-specific framing: the camera fits the whole loop (figure + props) for its auto-orbit range, per-move azimuth/elevation/zoom.
+- Gentle auto-orbit (±10° over 18 s), paused for 4 s after a drag; drag to orbit (horizontal for touch, tilt with mouse/pen) with inertia; arrow keys still rotate.
+- Reduced motion: no auto-orbit, no idle sway, no inertia; the demo still starts paused (unchanged) and reacts to the OS setting changing mid-session.
+- Pixel ratio capped at 2 and at 1.6 MP per canvas; it steps down by 0.25 (to 1.0 minimum) after sustained frames slower than 25 fps.
+- Disposal frees geometries, materials and textures; removed benches are disposed on exercise change.
+
+**Preview** — `anim.html?anim=<id>` (dev server) has an exercise picker, play/pause, trails and dark toggles and a live phase/tension readout; `&t=0..1` renders a fixed frame; `&sheet=1` is the contact-sheet layout.
+
+### Animation verification
+
+- Unit tests: `test/anim.test.ts` (214 tests) — timeline continuity/holds/no overshoot/easing/phase/tension/zero-duration safety; and for **every** animation at 60 fps: finite joints, nothing below the floor (>−1.5 cm), dumbbells above the floor, no joint moving more than 4.5 cm in one frame (no popping), planted limbs within 1.2 cm, standing foot not sliding (<2 cm), centre of mass over the feet for two-footed standing moves, no torso sinking more than 3 cm into a bench pad, two-hand/goblet/hip-bell grips within 3 cm, IK reach.
+- Before/after contact sheets (0/25/50/75 % of each loop) for every move: `screenshots/anim/before/<id>.png` and `screenshots/anim/<id>.png`; overviews `screenshots/anim/overview-1.png`, `overview-2.png`; dark samples in `screenshots/anim/dark/`. Generated with `node scripts/anim-contact.mjs [baseUrl] [outDir] [ids]` (+ `python3 scripts/anim-overview.py`).
+- Every "after" sheet was opened and inspected. Problems found and fixed during review: hinges with hips ahead of the ankles (RDL, good morning, bent-over row), squat centre of mass behind the heels and frog-legged knees, cat pose collapsing instead of arching, child's pose head through the floor and knees dipping, figure-four unreadable, decline legs floating, worlds-greatest "boxing" elbow, step-up bell clipping the thigh, resting hands sticking out (breathing), reverse-lunge rear shin flat on the floor, reverse-crunch ribcage pressing into the pad, a sternum "abs" spot.
+
+Visual review inventory (all 44 animation ids in the registry; the brief said 43 — the registry also contains `bw-squat`, used by the warm-up):
+
+| Group | Moves reviewed (after sheet) |
+| --- | --- |
+| Knee dominant | goblet-squat, bw-squat, bulgarian-split-squat, reverse-lunge, step-up |
+| Hinge | db-rdl, good-morning, hip-thrust, sumo-deadlift, single-leg-rdl |
+| Push | flat-db-press, close-grip-press, incline-db-press, decline-db-press, seated-shoulder-press, push-up |
+| Pull | one-arm-row, chest-supported-row, rear-delt-fly, db-pullover, bent-over-row |
+| Arms | hammer-curl, alt-curl, incline-curl, overhead-triceps, skull-crusher |
+| Core | dead-bug, side-plank, plank, reverse-crunch |
+| Warm-up | march, arm-circles, cat-cow, worlds-greatest, wall-angel |
+| Cool-down | hip-flexor-stretch, hamstring-stretch, figure-four, childs-pose, chest-opener, breathing |
+| Finishers | thruster, farmer-march, mountain-climber |
+
+### Animation performance (measured, with limits)
+
+`node scripts/anim-perf.mjs > screenshots/anim/perf.json` — headless Chrome with **SwiftShader software WebGL** on the Linux build box, 390 px wide stage, deviceScaleFactor 2:
+
+- Scene cost after the geometry trim: ~48 k triangles, 86–126 draw calls per frame including the shadow pass (was ~101 k triangles / 131–171 calls before trimming sphere/lathe resolution and removing small parts from the shadow pass).
+- CPU time to pose + submit one frame (`renderAt`): 0.5–5 ms average across six sampled moves.
+- Free-running frame interval under software rendering: 26–40 ms (≈25–38 fps); the adaptive pixel ratio stepped down to 1.75 there. This is a CPU rasteriser, not a phone GPU.
+- **Not measured on a physical Android device.** No claim of 60 fps on Android is made; mid-range phone GPUs should handle this scene size, but that needs a real-device check (Chrome DevTools remote performance trace). The adaptive pixel ratio is the safety valve.
+- The lazy 3D chunk is 626 kB (161 kB gzip), up ~1 kB of app code plus `BufferGeometryUtils` from Three's own addons; precache is 18 entries / 1104.8 KiB (was 1044 KiB). No new dependencies, no CDN.
+
 ## Verification
 
-Final gate, run 2026-11-08 on Linux, Node 24, Google Chrome via playwright-core (phone 390×844 @2x and desktop 1280×800, light and dark). All commands exited 0.
+The gate below was re-run after the animation upgrade (see the end of this section for the latest numbers).
+
+Final gate (previous polish pass), run 2026-11-08 on Linux, Node 24, Google Chrome via playwright-core (phone 390×844 @2x and desktop 1280×800, light and dark). All commands exited 0.
 
 - Unit tests (Vitest, 62): domain logic, including the new session, daily-validation, backup-hardening and photo-decoding tests.
 - e2e (`npm run e2e`, 27 steps / 55 assertions, no browser console errors): the whole session flow, rest timer (auto-start, ±15 s, pause/resume, end vibration, paused-rest regression), resume after reload, swaps, 4-day schedule + programme swap/edit with reload, weights list, theme persistence, backup export/reset/import, Garmin CSV preview/merge, bad backup and bad CSV errors, offline reload through the service worker, fresh-install empty states, reduced motion, storage blocked, WebGL unavailable, keyboard skip link and sheet focus trap/return. It writes 48 screenshots to `screenshots/`, which were reviewed by eye.
@@ -99,7 +163,14 @@ PASS  quick daily log saves weight, steps, sleep, waist
 exit=0
 ```
 
+### Latest gate (after the animation upgrade)
+
+All commands exited 0: `npm run lint`, `npm run typecheck`, `npm test` (8 files, 276 tests), `npm run build` (precache 18 entries, 1104.82 KiB), `npm run e2e` (27 steps, 55 assertions, 48 screenshots refreshed), `npm run build:pages && npm run e2e:pages` (23 steps, 55 assertions).
+
 ## Known limitations
+
+- Animation: poses are hand-authored joint angles plus IK, not motion capture; a few moves are stylised (side plank is shown straight-arm on the floor contact, the march arm swing is generous, the child's pose keeps the hips slightly low). Grips use a rotating fist rather than separate fingers. Clipping checks are heuristic (contact points vs floor/bench pad); arm-through-torso intersection is checked visually, not automatically.
+- Animation performance has only been measured in software-rendered headless Chrome (see above); not on a physical Android device.
 
 - The rest timer's paused state lives in memory: after a reload during a paused rest, the rest is cleared (a running rest survives reloads because its end time is stored).
 - The warm-up, cool-down and finisher timers restart their current move or interval after a reload (the position in the move list is kept). Persisting them is a small follow-up (store a start timestamp like the rest timer does).

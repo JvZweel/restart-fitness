@@ -1,0 +1,71 @@
+{
+  "env": "headless Chrome, SwiftShader (CPU) WebGL, viewport 390 px wide, deviceScaleFactor 2",
+  "results": [
+    {
+      "id": "goblet-squat",
+      "rafAvgMs": 28.48,
+      "rafP95Ms": 50,
+      "renderAtAvgMs": 0.89,
+      "renderAtP95Ms": 2.9,
+      "calls": 94,
+      "triangles": 48362,
+      "pixelRatio": 2,
+      "geometries": 30
+    },
+    {
+      "id": "flat-db-press",
+      "rafAvgMs": 31.06,
+      "rafP95Ms": 50,
+      "renderAtAvgMs": 5.23,
+      "renderAtP95Ms": 0.8,
+      "calls": 126,
+      "triangles": 50282,
+      "pixelRatio": 1.75,
+      "geometries": 43
+    },
+    {
+      "id": "push-up",
+      "rafAvgMs": 34.85,
+      "rafP95Ms": 66.6,
+      "renderAtAvgMs": 0.65,
+      "renderAtP95Ms": 1.1,
+      "calls": 86,
+      "triangles": 47962,
+      "pixelRatio": 1.75,
+      "geometries": 26
+    },
+    {
+      "id": "one-arm-row",
+      "rafAvgMs": 34.54,
+      "rafP95Ms": 66.7,
+      "renderAtAvgMs": 0.97,
+      "renderAtP95Ms": 3.8,
+      "calls": 118,
+      "triangles": 49874,
+      "pixelRatio": 1.75,
+      "geometries": 42
+    },
+    {
+      "id": "childs-pose",
+      "rafAvgMs": 40.3,
+      "rafP95Ms": 66.7,
+      "renderAtAvgMs": 1.18,
+      "renderAtP95Ms": 0.8,
+      "calls": 86,
+      "triangles": 47962,
+      "pixelRatio": 1.75,
+      "geometries": 26
+    },
+    {
+      "id": "thruster",
+      "rafAvgMs": 26.21,
+      "rafP95Ms": 50,
+      "renderAtAvgMs": 0.45,
+      "renderAtP95Ms": 0.6,
+      "calls": 102,
+      "triangles": 48778,
+      "pixelRatio": 2,
+      "geometries": 31
+    }
+  ]
+}

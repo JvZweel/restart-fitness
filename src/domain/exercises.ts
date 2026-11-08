@@ -1,4 +1,4 @@
-import type { Exercise, Finisher, GuidedMove, Pattern } from './types';
+import type { Exercise, Finisher, GuidedMove, Muscle, Pattern } from './types';
 
 /** Curated dumbbell + adjustable-bench library. Every exercise has its own animation. */
 export const EXERCISES: Exercise[] = [
@@ -123,3 +123,11 @@ export const FINISHERS: Finisher[] = [
 ];
 
 export const FINISHER_BY_ID: Record<string, Finisher> = Object.fromEntries(FINISHERS.map((f) => [f.id, f]));
+
+/** Muscles emphasised by each warm-up move, stretch and finisher (for the animation highlight). */
+export const MOVE_MUSCLES: Record<string, Muscle[]> = {
+  march: ['hipFlexors', 'quads'], 'arm-circles': ['shoulders'], 'cat-cow': ['lowerBack', 'abs'], 'worlds-greatest': ['hipFlexors', 'adductors', 'upperBack'],
+  'hip-hinge-drill': ['hamstrings', 'glutes'], 'bw-squat': ['quads', 'glutes'], 'scap-pushup': ['shoulders', 'upperBack'],
+  'hip-flexor': ['hipFlexors', 'quads'], hamstring: ['hamstrings'], 'figure-four': ['glutes'], 'childs-pose': ['lats', 'lowerBack'], 'chest-opener': ['chest', 'shoulders'], breathing: ['abs'],
+  'thruster-intervals': ['quads', 'shoulders', 'glutes'], 'farmer-march': ['forearms', 'traps', 'abs'], 'incline-climbers': ['abs', 'hipFlexors', 'shoulders'],
+};
